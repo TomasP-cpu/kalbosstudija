@@ -1017,9 +1017,12 @@
       outline: none;
       padding: 0;
       margin: 0;
-      line-height: 1.4;
+      line-height: 1.45;
       resize: none;
       display: block;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      overflow: hidden;
     }
 
     /* DEŠINĖS PUSĖS SKYDAS */
@@ -4227,9 +4230,14 @@
 
           activePlanCellCoord = { rowIdx: rIdx, field };
           targetTd.classList.add('plan-cell-active');
-          targetTd.innerHTML = `<input type="text" class="plan-inline-input" value="${escapeHtml(curVal)}" />`;
+          targetTd.innerHTML = `<textarea rows="1" class="plan-inline-input">${escapeHtml(curVal)}</textarea>`;
 
           const inp = targetTd.querySelector('.plan-inline-input');
+          function autoGrowPlanTextarea() {
+            inp.style.height = 'auto';
+            inp.style.height = `${Math.max(20, inp.scrollHeight)}px`;
+          }
+          autoGrowPlanTextarea();
           inp.focus();
           if (placeCursorEnd) {
             const len = inp.value.length;
@@ -4237,6 +4245,7 @@
           }
 
           inp.addEventListener('input', () => {
+            autoGrowPlanTextarea();
             if (sObj && field) {
               sObj[field] = inp.value;
               schedulePlanAutosave();
