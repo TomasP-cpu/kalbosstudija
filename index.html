@@ -1999,6 +1999,7 @@
     </div>
   </div>
 
+  <input type="file" id="clientDirectFileInput" multiple style="display:none" />
   <div class="toast" id="toast"></div>
 
   <script>
@@ -2042,6 +2043,10 @@
       let currentUser = null;
       let sharedOwnerId = null; // Bendros darbo erdvės eilutės ID duomenų bazėje
       let isSaving = false;
+      let isPickingFile = false;
+      let isUploadingFile = false;
+      let pickFileResetTimer = null;
+      let uploadTargetClientId = null;
       let activePage = 'calendar';
       let selectedDate = startOfDay(new Date());
       let statsMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -2361,6 +2366,25 @@
         return String(type || '').startsWith('image/');
       }
 
+      function isImageFile(file) {
+        if (isImageMime(file.type)) return true;
+        return /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i.test(file.name || '');
+      }
+
+      function markFilePickerOpen() {
+        isPickingFile = true;
+        clearTimeout(pickFileResetTimer);
+      }
+
+      function scheduleFilePickerReset() {
+        clearTimeout(pickFileResetTimer);
+        pickFileResetTimer = setTimeout(() => { isPickingFile = false; }, 3000);
+      }
+
+      window.addEventListener('focus', () => {
+        if (isPickingFile) scheduleFilePickerReset();
+      });
+
       function getFileIcon(type, name = '') {
         const t = String(type || '').toLowerCase();
         const n = String(name || '').toLowerCase();
@@ -2380,30 +2404,33 @@
         });
       }
 
-      function compressImageFile(file) {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onerror = () => reject(new Error('Nepavyko perskaityti nuotraukos'));
-          reader.onload = () => {
-            const rawDataUrl = reader.result;
-            if ((file.type === 'image/png' || file.type === 'image/svg+xml' || file.type === 'image/gif') && file.size <= 450 * 1024) {
-              resolve({
-                id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-                name: file.name,
-                type: file.type,
-                size: file.size,
-                dataUrl: rawDataUrl,
-                uploadedAt: toISODate(new Date())
-              });
-              return;
-            }
+      async function compressImageFile(file) {
+        const safeName = file.name || ('nuotrauka_' + toISODate(new Date()) + '.jpg');
+        if ((file.type === 'image/png' || file.type === 'image/svg+xml' || file.type === 'image/gif') && file.size <= 450 * 1024) {
+          const rawDataUrl = await readFileAsDataURL(file);
+          return {
+            id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            name: safeName,
+            type: file.type,
+            size: file.size,
+            dataUrl: rawDataUrl,
+            uploadedAt: toISODate(new Date())
+          };
+        }
 
-            const img = new Image();
-            img.onerror = () => reject(new Error('Sugadintas nuotraukos failas'));
-            img.onload = () => {
+        // Naudojame ObjectURL vietoje FileReader, kad telefonas neeikvotų RAM didelėms kameros nuotraukoms
+        return new Promise((resolve, reject) => {
+          const objUrl = URL.createObjectURL(file);
+          const img = new Image();
+          img.onerror = () => {
+            URL.revokeObjectURL(objUrl);
+            reject(new Error('UNSUPPORTED_IMAGE'));
+          };
+          img.onload = () => {
+            try {
               const MAX_DIM = 1400;
-              let w = img.width;
-              let h = img.height;
+              let w = img.naturalWidth || img.width;
+              let h = img.naturalHeight || img.height;
               if (w > MAX_DIM || h > MAX_DIM) {
                 if (w > h) {
                   h = Math.round((h * MAX_DIM) / w);
@@ -2422,21 +2449,24 @@
               const outType = file.type === 'image/png' && file.size <= 900 * 1024 ? 'image/png' : 'image/jpeg';
               const outDataUrl = outType === 'image/png'
                 ? canvas.toDataURL('image/png')
-                : canvas.toDataURL('image/jpeg', 0.82);
+                : canvas.toDataURL('image/jpeg', 0.80);
 
+              URL.revokeObjectURL(objUrl);
               const approxBytes = Math.round((outDataUrl.length * 3) / 4);
               resolve({
                 id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-                name: file.name,
+                name: safeName,
                 type: outType,
                 size: approxBytes,
                 dataUrl: outDataUrl,
                 uploadedAt: toISODate(new Date())
               });
-            };
-            img.src = rawDataUrl;
+            } catch (e) {
+              URL.revokeObjectURL(objUrl);
+              reject(e);
+            }
           };
-          reader.readAsDataURL(file);
+          img.src = objUrl;
         });
       }
 
@@ -2444,9 +2474,26 @@
         const results = [];
         for (const file of Array.from(fileList)) {
           try {
-            if (isImageMime(file.type)) {
-              const item = await compressImageFile(file);
-              results.push(item);
+            if (isImageFile(file)) {
+              try {
+                const item = await compressImageFile(file);
+                results.push(item);
+              } catch (imgErr) {
+                // Pvz., HEIC/HEIF nuotrauka, kurios naršyklė negali suspausti per canvas
+                if (file.size <= MAX_RAW_FILE_BYTES) {
+                  const dataUrl = await readFileAsDataURL(file);
+                  results.push({
+                    id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                    name: file.name || 'nuotrauka',
+                    type: file.type || 'application/octet-stream',
+                    size: file.size,
+                    dataUrl,
+                    uploadedAt: toISODate(new Date())
+                  });
+                } else {
+                  alert(`Nuotraukos „${file.name}“ (${formatBytes(file.size)}) naršyklė negalėjo suspausti (dažnai pasitaiko su iPhone HEIC formatu). Pabandykite įkelti iš galerijos arba padaryti ekrano nuotrauką.`);
+                }
+              }
             } else {
               if (file.size > MAX_RAW_FILE_BYTES) {
                 alert(`Failas „${file.name}“ yra per didelis (${formatBytes(file.size)}). Maksimalus dokumento dydis – 3 MB.`);
@@ -2541,10 +2588,14 @@
         });
       }
 
-      elSessionDropzone.addEventListener('click', () => elSessionFileInput.click());
+      elSessionDropzone.addEventListener('click', () => {
+        markFilePickerOpen();
+        elSessionFileInput.click();
+      });
       elSessionDropzone.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
+          markFilePickerOpen();
           elSessionFileInput.click();
         }
       });
@@ -2557,18 +2608,61 @@
         e.preventDefault();
         elSessionDropzone.classList.remove('dragover');
         if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-          const added = await processUploadedFiles(e.dataTransfer.files);
-          draftSessionAttachments.push(...added);
-          renderSessionAttachmentsList();
+          isUploadingFile = true;
+          showToast('⏳ Apdorojami failai...');
+          try {
+            const added = await processUploadedFiles(e.dataTransfer.files);
+            draftSessionAttachments.push(...added);
+            renderSessionAttachmentsList();
+          } finally {
+            isUploadingFile = false;
+          }
         }
       });
 
       elSessionFileInput.addEventListener('change', async () => {
+        isPickingFile = false;
+        clearTimeout(pickFileResetTimer);
         if (elSessionFileInput.files && elSessionFileInput.files.length > 0) {
-          const added = await processUploadedFiles(elSessionFileInput.files);
-          draftSessionAttachments.push(...added);
-          renderSessionAttachmentsList();
-          elSessionFileInput.value = '';
+          isUploadingFile = true;
+          showToast('⏳ Apdorojama nuotrauka / failas...');
+          try {
+            const added = await processUploadedFiles(elSessionFileInput.files);
+            if (added.length > 0) {
+              draftSessionAttachments.push(...added);
+              renderSessionAttachmentsList();
+              showToast('Pridėta! Nepamirškite paspausti „Išsaugoti“.');
+            }
+          } finally {
+            isUploadingFile = false;
+            elSessionFileInput.value = '';
+          }
+        }
+      });
+
+      // Statinis failų įkėlimo elementas kliento kortelei (kad kamera nenutrauktų įkėlimo)
+      const elClientDirectFileInput = document.getElementById('clientDirectFileInput');
+      elClientDirectFileInput.addEventListener('change', async () => {
+        isPickingFile = false;
+        clearTimeout(pickFileResetTimer);
+        if (elClientDirectFileInput.files && elClientDirectFileInput.files.length > 0) {
+          isUploadingFile = true;
+          showToast('⏳ Apdorojama ir saugoma...');
+          try {
+            const added = await processUploadedFiles(elClientDirectFileInput.files);
+            const targetId = uploadTargetClientId || selectedClientId;
+            const freshClient = state.clients.find(c => c.id === targetId);
+            if (added.length > 0 && freshClient) {
+              if (!Array.isArray(freshClient.attachments)) freshClient.attachments = [];
+              freshClient.attachments.unshift(...added);
+              renderClientsPage();
+              await saveState();
+              showToast(`Pridėta failų: ${added.length}`);
+            }
+          } finally {
+            isUploadingFile = false;
+            elClientDirectFileInput.value = '';
+          }
         }
       });
 
@@ -2943,14 +3037,20 @@
       });
 
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && currentUser && !isSaving) {
-          loadFromCloud(false, true);
+        if (document.visibilityState === 'visible') {
+          if (isPickingFile) {
+            scheduleFilePickerReset();
+            return;
+          }
+          if (currentUser && !isSaving && !isUploadingFile && !isAnyModalOpen()) {
+            loadFromCloud(false, true);
+          }
         }
       });
 
       // Automatinis tylus sinchronizavimas fone kas 30 sek., jei neatidarytas redagavimo langas
       setInterval(() => {
-        if (document.visibilityState === 'visible' && currentUser && !isSaving && !isAnyModalOpen()) {
+        if (document.visibilityState === 'visible' && currentUser && !isSaving && !isUploadingFile && !isPickingFile && !isAnyModalOpen()) {
           loadFromCloud(false, true);
         }
       }, 30000);
@@ -3821,7 +3921,6 @@
               <div class="section-title">Nuotraukos ir failai (${allFiles.length})</div>
               <div>
                 <button class="btn btn-primary btn-sm" id="btnClientUploadFile">+ Pridėti nuotrauką / failą</button>
-                <input type="file" id="clientDirectFileInput" multiple style="display:none" />
               </div>
             </div>
             ${allFiles.length === 0 ? `
@@ -3923,21 +4022,11 @@
         document.getElementById('btnDeleteCurrentClient').addEventListener('click', () => deleteClient(client.id));
         document.getElementById('btnAddTask').addEventListener('click', () => openTaskModal(null, client.id));
 
-        // Tiesioginis failo įkėlimas kliento kortelėje
-        const elDirectInput = document.getElementById('clientDirectFileInput');
-        document.getElementById('btnClientUploadFile').addEventListener('click', () => elDirectInput.click());
-        elDirectInput.addEventListener('change', async () => {
-          if (elDirectInput.files && elDirectInput.files.length > 0) {
-            const added = await processUploadedFiles(elDirectInput.files);
-            if (added.length > 0) {
-              if (!Array.isArray(client.attachments)) client.attachments = [];
-              client.attachments.unshift(...added);
-              renderClientsPage();
-              await saveState();
-              showToast(`Pridėta failų: ${added.length}`);
-            }
-            elDirectInput.value = '';
-          }
+        // Tiesioginis failo įkėlimas kliento kortelėje (per statinį elementą)
+        document.getElementById('btnClientUploadFile').addEventListener('click', () => {
+          uploadTargetClientId = client.id;
+          markFilePickerOpen();
+          elClientDirectFileInput.click();
         });
 
         // Failų peržiūra, atsisiuntimas, šuolis į užsiėmimą ir trynimas
