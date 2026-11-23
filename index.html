@@ -835,14 +835,56 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 10px;
+      flex-wrap: nowrap;
+      gap: 12px;
       padding: 12px 14px;
       background: #f8fafc;
       border: 1px solid var(--border);
       border-radius: 8px;
       margin-bottom: 12px;
       font-size: 13.5px;
+    }
+    .plan-banner-info {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .plan-banner-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    #btnTogglePlanSort {
+      min-width: 146px;
+      justify-content: center;
+    }
+    .plan-group-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px;
+      background: #f1f5f9;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 700;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .plan-group-divider::before,
+    .plan-group-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #cbd5e1;
+    }
+    @media (max-width: 760px) {
+      .day-occupancy-banner {
+        flex-wrap: wrap;
+      }
+      .plan-banner-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
     }
 
     .day-timeline {
@@ -3976,6 +4018,22 @@
         );
       }
 
+      function sortPlanSessions(list) {
+        const copy = [...list];
+        if (planSortBy === 'name') {
+          return copy.sort((a, b) =>
+            (a.client || '').localeCompare(b.client || '', 'lt') ||
+            (a.date || '').localeCompare(b.date || '') ||
+            (a.startTime || '').localeCompare(b.startTime || '')
+          );
+        }
+        return copy.sort((a, b) =>
+          (a.date || '').localeCompare(b.date || '') ||
+          (a.startTime || '').localeCompare(b.startTime || '') ||
+          (a.client || '').localeCompare(b.client || '', 'lt')
+        );
+      }
+
       function renderPlanningTableView() {
         const filtered = getFilteredSessions();
         let sessions = [];
@@ -3999,18 +4057,27 @@
         }
 
         const showDateCol = currentView === 'week' || currentView === 'month';
-        const sortLabel = planSortBy === 'name' ? '↕ Rūšiuoti: Vardas' : '↕ Rūšiuoti: Data';
+        const isDayView = currentView === 'day';
+        const sortLabel = planSortBy === 'name'
+          ? '↕ Rūšiuoti: Vardas'
+          : (isDayView ? '↕ Rūšiuoti: Laikas' : '↕ Rūšiuoti: Data');
         const sortTitle = planSortBy === 'name'
-          ? 'Dabar rūšiuojama pagal vardą – spustelėkite, kad rūšiuotų pagal datą'
-          : 'Dabar rūšiuojama pagal datą – spustelėkite, kad rūšiuotų pagal vardą';
+          ? (isDayView
+              ? 'Dabar rūšiuojama pagal vardą – spustelėkite, kad rūšiuotų pagal laiką'
+              : 'Dabar rūšiuojama pagal vardą – spustelėkite, kad rūšiuotų pagal datą')
+          : (isDayView
+              ? 'Dabar rūšiuojama pagal laiką – spustelėkite, kad rūšiuotų pagal vardą'
+              : 'Dabar rūšiuojama pagal datą – spustelėkite, kad rūšiuotų pagal vardą');
+
+        const colCount = showDateCol ? 6 : 5;
 
         let html = `
           <div class="day-occupancy-banner">
-            <div>
+            <div class="plan-banner-info">
               <strong>${escapeHtml(scopeNote)}:</strong> iš viso įrašų – <strong>${sessions.length}</strong>
               <span style="font-size:12px; color:var(--muted); margin-left:8px;">Spustelėkite Temą arba Pastabas – rašykite, rodyklėmis ↑ ↓ ← → judėkite, Enter arba paspaudimas šone išeina</span>
             </div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <div class="plan-banner-actions">
               <button type="button" class="btn btn-sm" id="btnTogglePlanSort" title="${escapeHtml(sortTitle)}">${escapeHtml(sortLabel)}</button>
               <button class="btn btn-primary btn-sm" id="btnPlanAddSession">+ Pridėti įrašą</button>
             </div>
@@ -4031,6 +4098,54 @@
           return;
         }
 
+        let bodyRowsHtml = '';
+        sessions.forEach((s, rIdx) => {
+          if (rIdx > 0) {
+            const prev = sessions[rIdx - 1];
+            if (planSortBy === 'name') {
+              const curName = (s.client || '').trim().toLowerCase();
+              const prevName = (prev.client || '').trim().toLowerCase();
+              if (curName !== prevName) {
+                bodyRowsHtml += `
+                  <tr class="plan-divider-tr">
+                    <td colspan="${colCount}" style="padding:0; border:none;">
+                      <div class="plan-group-divider"><span>${escapeHtml(s.client || '')}</span></div>
+                    </td>
+                  </tr>
+                `;
+              }
+            } else {
+              if (!isDayView && (s.date || '') !== (prev.date || '')) {
+                bodyRowsHtml += `
+                  <tr class="plan-divider-tr">
+                    <td colspan="${colCount}" style="padding:0; border:none;">
+                      <div class="plan-group-divider"><span>${escapeHtml(s.date || '')}</span></div>
+                    </td>
+                  </tr>
+                `;
+              }
+            }
+          }
+
+          const end = minsToTime(timeToMins(s.startTime) + Number(s.duration || 30));
+          const timeStr = `${s.startTime}–${end}`;
+          const pillClass = s.status === 'ivyko'
+            ? 'badge-green'
+            : (s.status === 'atsaukta' ? 'badge-red' : 'badge-blue');
+          bodyRowsHtml += `
+            <tr class="plan-row st-${s.status}" data-row-idx="${rIdx}" data-session-id="${escapeHtml(s.id)}">
+              ${showDateCol ? `<td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(s.date)}</strong></td>` : ''}
+              <td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(timeStr)}</strong></td>
+              <td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(s.client)}</strong></td>
+              <td class="plan-editable-cell plan-strike-cell" data-row-idx="${rIdx}" data-field="topic" data-session-id="${escapeHtml(s.id)}">${escapeHtml(s.topic || '')}</td>
+              <td class="plan-editable-cell plan-strike-cell" data-row-idx="${rIdx}" data-field="notes" data-session-id="${escapeHtml(s.id)}" style="color:var(--muted);">${escapeHtml(s.notes || '')}</td>
+              <td style="text-align:right; white-space:nowrap;">
+                <span class="badge ${pillClass}">${escapeHtml(STATUS_LABELS[s.status] || s.status)}</span>
+              </td>
+            </tr>
+          `;
+        });
+
         html += `
           <div class="plan-table-wrap" id="planTableWrap">
             <table class="plan-table" id="planTable">
@@ -4045,25 +4160,7 @@
                 </tr>
               </thead>
               <tbody>
-                ${sessions.map((s, rIdx) => {
-                  const end = minsToTime(timeToMins(s.startTime) + Number(s.duration || 30));
-                  const timeStr = `${s.startTime}–${end}`;
-                  const pillClass = s.status === 'ivyko'
-                    ? 'badge-green'
-                    : (s.status === 'atsaukta' ? 'badge-red' : 'badge-blue');
-                  return `
-                    <tr class="plan-row st-${s.status}" data-row-idx="${rIdx}" data-session-id="${escapeHtml(s.id)}">
-                      ${showDateCol ? `<td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(s.date)}</strong></td>` : ''}
-                      <td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(timeStr)}</strong></td>
-                      <td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(s.client)}</strong></td>
-                      <td class="plan-editable-cell plan-strike-cell" data-row-idx="${rIdx}" data-field="topic" data-session-id="${escapeHtml(s.id)}">${escapeHtml(s.topic || '')}</td>
-                      <td class="plan-editable-cell plan-strike-cell" data-row-idx="${rIdx}" data-field="notes" data-session-id="${escapeHtml(s.id)}" style="color:var(--muted);">${escapeHtml(s.notes || '')}</td>
-                      <td style="text-align:right; white-space:nowrap;">
-                        <span class="badge ${pillClass}">${escapeHtml(STATUS_LABELS[s.status] || s.status)}</span>
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
+                ${bodyRowsHtml}
               </tbody>
             </table>
           </div>
