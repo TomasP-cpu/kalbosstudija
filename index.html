@@ -1559,7 +1559,7 @@
         <span>📅</span>
         <span>Užsiėmimų kalendorius</span>
       </div>
-      <p class="auth-subtitle">Prisijunkite savo paskyra, kad matytumėte ir sinchronizuotumėte savo tvarkaraštį bei klientus visuose įrenginiuose.</p>
+      <p class="auth-subtitle">Prisijunkite savo paskyra, kad matytumėte ir sinchronizuotumėte bendrą tvarkaraštį bei klientus visuose įrenginiuose.</p>
       <div class="auth-error" id="authError"></div>
       <form id="loginForm" style="display:flex; flex-direction:column; gap:14px;">
         <div class="form-group">
@@ -1596,7 +1596,7 @@
       <div class="header-actions">
         <button class="btn btn-primary" id="btnNewSession">+ Naujas užsiėmimas</button>
         <button class="btn" id="btnNewClientHeader">+ Naujas klientas</button>
-        <span class="sync-status" id="syncStatus" title="Duomenys saugomi debesyje">☁️ Sinchronizuota</span>
+        <span class="sync-status" id="syncStatus" title="Bendri duomenys sinchronizuojami tarp visų paskyrų ir įrenginių">☁️ Sinchronizuota</span>
         <button class="btn btn-sm" id="btnManualSync" title="Atnaujinti duomenis iš debesies">↻</button>
 
         <!-- Vartotojo piktograma kampe su meniu -->
@@ -2040,6 +2040,8 @@
 
       // Programėlės būsena
       let currentUser = null;
+      let sharedOwnerId = null; // Bendros darbo erdvės eilutės ID duomenų bazėje
+      let isSaving = false;
       let activePage = 'calendar';
       let selectedDate = startOfDay(new Date());
       let statsMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -2658,7 +2660,7 @@
         textEl.addEventListener('change', () => syncDateProxy(targetId));
       });
 
-      // ==================== SUPABASE AUTH IR SINCHRONIZAVIMAS ====================
+      // ==================== SUPABASE AUTH IR BENDRA DARBO ERDVĖ ====================
       async function initAuth() {
         const { data: { session } } = await sb.auth.getSession();
         if (session && session.user) {
@@ -2674,6 +2676,7 @@
             }
           } else if (event === 'SIGNED_OUT') {
             currentUser = null;
+            sharedOwnerId = null;
             showAuthScreen();
           }
         });
@@ -2692,7 +2695,7 @@
         elUserAvatarLetter.textContent = email ? email.charAt(0).toUpperCase() : '👤';
         elAuthScreen.style.display = 'none';
         elAppShell.style.display = 'flex';
-        await loadFromCloud(true);
+        await loadFromCloud(true, false);
       }
 
       elLoginForm.addEventListener('submit', async e => {
@@ -2780,21 +2783,83 @@
         };
       }
 
-      async function loadFromCloud(allowLocalMigration = false) {
+      // Įvertina, kiek realių (ne pavyzdinių) įrašų turi duomenų rinkinys
+      function countRealItems(d) {
+        if (!d || !Array.isArray(d.clients) || !Array.isArray(d.sessions)) return 0;
+        const realClients = d.clients.filter(c => !String(c.id || '').startsWith('c-demo-')).length;
+        const realSessions = d.sessions.filter(s => !String(s.id || '').startsWith('demo-')).length;
+        return realClients * 10 + realSessions * 5 + d.clients.length + d.sessions.length;
+      }
+
+      // Apjungia kelias atskiras paskyrų eilutes į vieną bendrą (nieko neprarandant)
+      function mergeWorkspaceRows(rows) {
+        const sorted = [...rows].sort((a, b) => countRealItems(b.data) - countRealItems(a.data));
+        const primary = sorted[0];
+        const mergedClients = Array.isArray(primary.data.clients) ? primary.data.clients.map(c => ({ ...c })) : [];
+        const mergedSessions = Array.isArray(primary.data.sessions) ? primary.data.sessions.map(s => ({ ...s })) : [];
+
+        const clientIds = new Set(mergedClients.map(c => c.id));
+        const clientNames = new Set(mergedClients.map(c => c.name.trim().toLowerCase()));
+        const sessionIds = new Set(mergedSessions.map(s => s.id));
+
+        for (let i = 1; i < sorted.length; i++) {
+          const extra = sorted[i].data || {};
+          (extra.clients || []).forEach(c => {
+            if (String(c.id || '').startsWith('c-demo-')) return;
+            const normName = String(c.name || '').trim().toLowerCase();
+            if (!clientIds.has(c.id) && !clientNames.has(normName)) {
+              mergedClients.push({ ...c });
+              clientIds.add(c.id);
+              clientNames.add(normName);
+            }
+          });
+          (extra.sessions || []).forEach(s => {
+            if (String(s.id || '').startsWith('demo-')) return;
+            if (!sessionIds.has(s.id)) {
+              mergedSessions.push({ ...s });
+              sessionIds.add(s.id);
+            }
+          });
+        }
+
+        return {
+          ownerId: primary.user_id,
+          data: { clients: mergedClients, sessions: mergedSessions },
+          extraOwnerIds: sorted.slice(1).map(r => r.user_id)
+        };
+      }
+
+      async function loadFromCloud(allowLocalMigration = false, silent = false) {
         if (!currentUser) return;
-        setSyncStatus('saving', '⏳ Kraunama...');
+        if (!silent) setSyncStatus('saving', '⏳ Kraunama...');
         try {
-          const { data, error } = await sb
+          // Nuskaitome bendros darbo erdvės duomenis (nepriklausomai nuo to, kuria paskyra prisijungta)
+          const { data: rows, error } = await sb
             .from('app_data')
-            .select('data')
-            .eq('user_id', currentUser.id)
-            .maybeSingle();
+            .select('user_id, data, updated_at')
+            .order('updated_at', { ascending: false });
 
           if (error) throw error;
 
-          if (data && data.data && Array.isArray(data.data.clients) && Array.isArray(data.data.sessions)) {
-            state = data.data;
+          const validRows = (rows || []).filter(
+            r => r && r.data && Array.isArray(r.data.clients) && Array.isArray(r.data.sessions)
+          );
+
+          if (validRows.length === 1) {
+            sharedOwnerId = validRows[0].user_id;
+            state = validRows[0].data;
+          } else if (validRows.length > 1) {
+            // Jei anksčiau buvo sukurtos kelios atskiros eilutės skirtingoms paskyroms, apjungiame jas į vieną bendrą
+            const merged = mergeWorkspaceRows(validRows);
+            sharedOwnerId = merged.ownerId;
+            state = merged.data;
+            await saveState(true);
+            for (const extraId of merged.extraOwnerIds) {
+              await sb.from('app_data').delete().eq('user_id', extraId);
+            }
+            showToast('Paskyrų duomenys apjungti į bendrą kalendorių');
           } else {
+            // Dar nėra nei vienos eilutės duomenų bazėje
             let migrated = null;
             if (allowLocalMigration) {
               try {
@@ -2807,6 +2872,7 @@
                 }
               } catch (e) {}
             }
+            sharedOwnerId = currentUser.id;
             state = migrated || getDefaultDemoData();
             await saveState(true);
             if (migrated) showToast('Ankstesni duomenys perkelti į debesį');
@@ -2820,45 +2886,74 @@
         } catch (err) {
           console.error('Supabase load error:', err);
           setSyncStatus('error', '⚠️ Ryšio klaida');
-          showToast('Nepavyko užkrauti duomenų iš debesies');
+          if (!silent) showToast('Nepavyko užkrauti duomenų iš debesies');
         }
       }
 
       async function saveState(silent = false) {
         if (!currentUser) return;
+        isSaving = true;
         try {
           localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(state));
         } catch (e) {}
 
         setSyncStatus('saving', '⏳ Saugoma...');
         try {
-          const { error } = await sb
+          const targetOwnerId = sharedOwnerId || currentUser.id;
+          let { error } = await sb
             .from('app_data')
             .upsert({
-              user_id: currentUser.id,
+              user_id: targetOwnerId,
               data: state,
               updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
 
+          // Jei pirminės eilutės savininkas buvo ištrintas iš Auth, perrašome į dabartinio vartotojo ID
+          if (error && error.code === '23503' && targetOwnerId !== currentUser.id) {
+            sharedOwnerId = currentUser.id;
+            const retry = await sb
+              .from('app_data')
+              .upsert({
+                user_id: sharedOwnerId,
+                data: state,
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'user_id' });
+            error = retry.error;
+          }
+
           if (error) throw error;
+          if (!sharedOwnerId) sharedOwnerId = targetOwnerId;
           setSyncStatus('', '☁️ Sinchronizuota');
         } catch (err) {
           console.error('Supabase save error:', err);
           setSyncStatus('error', '⚠️ Nepavyko išsaugoti');
           if (!silent) showToast('Klaida saugant į debesį. Patikrinkite failų dydį arba ryšį.');
+        } finally {
+          isSaving = false;
         }
       }
 
+      function isAnyModalOpen() {
+        return document.querySelectorAll('.modal-backdrop.open').length > 0;
+      }
+
       document.getElementById('btnManualSync').addEventListener('click', async () => {
-        await loadFromCloud(false);
+        await loadFromCloud(false, false);
         showToast('Duomenys atnaujinti');
       });
 
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && currentUser) {
-          loadFromCloud(false);
+        if (document.visibilityState === 'visible' && currentUser && !isSaving) {
+          loadFromCloud(false, true);
         }
       });
+
+      // Automatinis tylus sinchronizavimas fone kas 30 sek., jei neatidarytas redagavimo langas
+      setInterval(() => {
+        if (document.visibilityState === 'visible' && currentUser && !isSaving && !isAnyModalOpen()) {
+          loadFromCloud(false, true);
+        }
+      }, 30000);
 
       // ==================== BENDROS FUNKCIJOS ====================
       function updateClientsDatalist() {
@@ -3342,7 +3437,6 @@
 
         const allClientMap = new Map();
 
-        // Įtraukiame visus sukurtus klientus (kad matytųsi ir tie, kurie dar turi 0 užsiėmimų)
         state.clients.forEach(c => {
           const cleanName = c.name.trim();
           const normKey = cleanName.toLowerCase();
@@ -3363,7 +3457,6 @@
           }
         });
 
-        // Susumuojame visų mėnesių užsiėmimus kiekvienam klientui
         state.sessions.forEach(s => {
           const cleanName = s.client.trim();
           const normKey = cleanName.toLowerCase();
@@ -3423,7 +3516,6 @@
           }
         });
 
-        // Jei pasirinktas vienas klientas iš filtro, automatiškai išskleidžiame jo mėnesius
         if (statsClientFilter !== 'all') {
           expandedStatsClients.add(statsClientFilter.toLowerCase());
         }
