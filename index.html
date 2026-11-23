@@ -588,15 +588,15 @@
     }
 
     .day-cell {
-      min-height: 112px;
+      min-height: 158px;
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 6px;
+      padding: 5px 6px;
       background: #fff;
       cursor: pointer;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2.5px;
       transition: border-color 0.15s, background 0.15s;
     }
 
@@ -632,9 +632,10 @@
     }
 
     .event-chip {
-      font-size: 11.5px;
-      padding: 3px 6px;
-      border-radius: 5px;
+      font-size: 11px;
+      line-height: 1.25;
+      padding: 2px 5px;
+      border-radius: 4px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -3325,15 +3326,15 @@
             ${activeMins > 0 ? `<span class="occupancy-pill" title="Užimtumas">${formatDuration(activeMins)}</span>` : ''}
           </div>`;
 
-          const visible = daySessions.slice(0, 3);
+          const visible = daySessions.slice(0, 5);
           visible.forEach(s => {
             const attCount = (s.attachments || []).length;
             html += `<div class="event-chip st-${s.status}" data-id="${s.id}" title="${escapeHtml(s.date + ' ' + s.startTime + ' ' + s.client + ' – ' + s.topic)}">
               <strong>${escapeHtml(s.startTime)}</strong> ${escapeHtml(s.client)}${attCount > 0 ? ' 📎' : ''}
             </div>`;
           });
-          if (daySessions.length > 3) {
-            html += `<div class="more-chip">+ dar ${daySessions.length - 3}</div>`;
+          if (daySessions.length > 5) {
+            html += `<div class="more-chip">+ dar ${daySessions.length - 5}</div>`;
           }
           html += `</div>`;
         }
