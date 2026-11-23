@@ -1823,7 +1823,10 @@
             </div>
             <div class="sidebar-subbar">
               <span class="sidebar-date-label" id="sidebarDateLabel"></span>
-              <button class="btn btn-primary btn-sm" id="btnQuickAdd">+ Pridėti</button>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button class="btn btn-sm" id="btnOpenCopyDayModal" title="Kopijuoti visus šios dienos užsiėmimus į vieną ar kelias dienas">📋 Kopijuoti dieną</button>
+                <button class="btn btn-primary btn-sm" id="btnQuickAdd">+ Pridėti</button>
+              </div>
             </div>
           </div>
           <div class="sidebar-body" id="sidebarBody"></div>
@@ -2210,6 +2213,63 @@
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn" data-close="swapSessionModal">Atšaukti</button>
             <button type="submit" class="btn btn-primary" id="btnConfirmSwap">🔀 Sukeisti</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODALAS: KOPIJUOTI DIENOS UŽSIĖMIMUS Į VIENĄ AR KELIAS DIENAS -->
+  <div class="modal-backdrop" id="copyDayModal">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <span>📋 Kopijuoti dienos užsiėmimus</span>
+        <button class="btn btn-sm" data-close="copyDayModal">✕</button>
+      </div>
+      <form id="copyDayForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="copySourceDate">Šaltinio diena (iš kurios kopijuojama) *</label>
+            <div class="date-picker-wrap">
+              <input type="text" id="copySourceDate" class="form-input" required placeholder="2026-11-24" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" />
+              <span class="date-picker-btn" aria-hidden="true">📅</span>
+              <input type="date" class="native-date-proxy" data-target="copySourceDate" tabindex="-1" title="Pasirinkti šaltinio datą" />
+            </div>
+          </div>
+
+          <div id="copySourcePreview" style="padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px solid var(--border); font-size:12.5px; line-height:1.45;"></div>
+
+          <div class="form-group">
+            <label class="form-label" for="copyTargetDatesText">Tikslinės dienos (viena ar kelios datos, MMMM-MM-DD) *</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="copyTargetDatesText" class="form-input" required placeholder="Pvz., 2026-12-01, 2026-12-03" />
+              <button type="button" class="btn btn-sm" id="btnAddTargetDatePicker" title="Pridėti datą per kalendorių">+ Data</button>
+              <input type="date" id="copyTargetDateProxy" style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;" tabindex="-1" />
+            </div>
+            <span style="font-size:11.5px; color:var(--muted);">Kelias datas atskirkite kableliu, kabliataškiu arba nauja eilute.</span>
+          </div>
+
+          <div id="copyTargetChips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+
+          <div class="form-group">
+            <label class="form-label" for="copyTargetStatus">Naujų užsiėmimų būsena</label>
+            <select id="copyTargetStatus" class="form-select">
+              <option value="suplanuota" selected>Suplanuota</option>
+              <option value="patvirtinta">Patvirtinta</option>
+              <option value="ivyko">Įvyko</option>
+            </select>
+          </div>
+
+          <p style="font-size:12px; color:var(--muted); line-height:1.45;">
+            Kiekvienam naujam įrašui perkeliamas <strong>vaikas</strong>, <strong>pradžios laikas</strong> ir <strong>trukmė</strong>, temos pavadinimas nustatomas kaip <strong>„Užsiėmimas“</strong>, o <strong>pastabos</strong> ir prisegti failai nekopijuojami.
+          </p>
+          <div class="form-error-box" id="copyDayError"></div>
+        </div>
+        <div class="modal-footer">
+          <div></div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn" data-close="copyDayModal">Atšaukti</button>
+            <button type="submit" class="btn btn-primary" id="btnConfirmCopyDay">📋 Kopijuoti į pasirinktas dienas</button>
           </div>
         </div>
       </form>
@@ -5297,6 +5357,183 @@
         renderAll();
         await saveState();
         showToast(`Sukeista vietomis: ${s1.client} (${s1.startTime}) ↔ ${s2.client} (${s2.startTime})`);
+      });
+
+      // ==================== DIENOS UŽSIĖMIMŲ KOPIJAVIMAS Į VIENĄ AR KELIAS DIENAS ====================
+      const elCopyDayModal = document.getElementById('copyDayModal');
+      const elCopyDayForm = document.getElementById('copyDayForm');
+      const elCopySourceDate = document.getElementById('copySourceDate');
+      const elCopySourcePreview = document.getElementById('copySourcePreview');
+      const elCopyTargetDatesText = document.getElementById('copyTargetDatesText');
+      const elCopyTargetDateProxy = document.getElementById('copyTargetDateProxy');
+      const elCopyTargetChips = document.getElementById('copyTargetChips');
+      const elCopyTargetStatus = document.getElementById('copyTargetStatus');
+      const elCopyDayError = document.getElementById('copyDayError');
+
+      function getSourceSessionsForCopy(dateStr) {
+        if (!isValidISODate(dateStr)) return [];
+        return state.sessions
+          .filter(s => s.date === dateStr && s.status !== 'atsaukta')
+          .sort((a, b) => a.startTime.localeCompare(b.startTime));
+      }
+
+      function renderCopySourcePreview() {
+        const srcDate = elCopySourceDate.value.trim();
+        if (!isValidISODate(srcDate)) {
+          elCopySourcePreview.innerHTML = `<span style="color:var(--muted);">Įveskite šaltinio datą formatu MMMM-MM-DD.</span>`;
+          return;
+        }
+        const list = getSourceSessionsForCopy(srcDate);
+        if (list.length === 0) {
+          elCopySourcePreview.innerHTML = `<strong>${escapeHtml(srcDate)}:</strong> aktyvių užsiėmimų kopijavimui nerasta.`;
+          return;
+        }
+        const itemsHtml = list.map(s => {
+          const end = minsToTime(timeToMins(s.startTime) + Number(s.duration || 30));
+          return `<li><strong>${escapeHtml(s.startTime)}–${end}</strong> · ${escapeHtml(s.client)} (${formatDuration(Number(s.duration || 30))})</li>`;
+        }).join('');
+        elCopySourcePreview.innerHTML = `
+          <div><strong>Kopijuojama iš ${escapeHtml(srcDate)} (${list.length} užsiėm.):</strong></div>
+          <ul style="margin:6px 0 0 18px; display:flex; flex-direction:column; gap:2px;">${itemsHtml}</ul>
+        `;
+      }
+
+      function parseTargetDatesList(rawStr) {
+        const tokens = String(rawStr || '')
+          .split(/[\s,;]+/)
+          .map(t => t.trim())
+          .filter(Boolean);
+        const unique = [];
+        const seen = new Set();
+        tokens.forEach(tok => {
+          if (isValidISODate(tok) && !seen.has(tok)) {
+            seen.add(tok);
+            unique.push(tok);
+          }
+        });
+        return { validDates: unique, invalidTokens: tokens.filter(t => !isValidISODate(t)) };
+      }
+
+      function renderCopyTargetChips() {
+        const { validDates } = parseTargetDatesList(elCopyTargetDatesText.value);
+        if (validDates.length === 0) {
+          elCopyTargetChips.innerHTML = '';
+          return;
+        }
+        elCopyTargetChips.innerHTML = validDates.map(dt => `
+          <span class="badge badge-blue" style="display:inline-flex; align-items:center; gap:5px; padding:4px 8px; font-size:12px;">
+            <span>📅 ${escapeHtml(dt)}</span>
+            <button type="button" data-remove-target-date="${escapeHtml(dt)}" style="border:none; background:transparent; color:inherit; font-weight:700; cursor:pointer; padding:0 2px;" title="Pašalinti datą">✕</button>
+          </span>
+        `).join('');
+
+        elCopyTargetChips.querySelectorAll('[data-remove-target-date]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const rem = btn.dataset.removeTargetDate;
+            const { validDates: cur } = parseTargetDatesList(elCopyTargetDatesText.value);
+            elCopyTargetDatesText.value = cur.filter(d => d !== rem).join(', ');
+            renderCopyTargetChips();
+          });
+        });
+      }
+
+      document.getElementById('btnOpenCopyDayModal').addEventListener('click', () => {
+        elCopyDayForm.reset();
+        elCopyDayError.style.display = 'none';
+        const srcIso = toISODate(selectedDate);
+        elCopySourceDate.value = srcIso;
+        syncDateProxy('copySourceDate');
+        const nextIso = toISODate(addDays(selectedDate, 2));
+        elCopyTargetDatesText.value = nextIso;
+        elCopyTargetStatus.value = 'suplanuota';
+        renderCopySourcePreview();
+        renderCopyTargetChips();
+        elCopyDayModal.classList.add('open');
+        elCopyTargetDatesText.focus();
+      });
+
+      elCopySourceDate.addEventListener('input', renderCopySourcePreview);
+      elCopySourceDate.addEventListener('change', renderCopySourcePreview);
+      elCopyTargetDatesText.addEventListener('input', renderCopyTargetChips);
+
+      document.getElementById('btnAddTargetDatePicker').addEventListener('click', () => {
+        if (typeof elCopyTargetDateProxy.showPicker === 'function') {
+          elCopyTargetDateProxy.showPicker();
+        } else {
+          elCopyTargetDateProxy.style.pointerEvents = 'auto';
+          elCopyTargetDateProxy.focus();
+          elCopyTargetDateProxy.click();
+          elCopyTargetDateProxy.style.pointerEvents = 'none';
+        }
+      });
+
+      elCopyTargetDateProxy.addEventListener('change', () => {
+        if (!elCopyTargetDateProxy.value) return;
+        const picked = elCopyTargetDateProxy.value;
+        const { validDates } = parseTargetDatesList(elCopyTargetDatesText.value);
+        if (!validDates.includes(picked)) validDates.push(picked);
+        elCopyTargetDatesText.value = validDates.join(', ');
+        elCopyTargetDateProxy.value = '';
+        renderCopyTargetChips();
+      });
+
+      elCopyDayForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        elCopyDayError.style.display = 'none';
+
+        const srcDate = elCopySourceDate.value.trim();
+        if (!isValidISODate(srcDate)) {
+          elCopyDayError.textContent = 'Šaltinio data turi būti teisingo formato MMMM-MM-DD.';
+          elCopyDayError.style.display = 'block';
+          return;
+        }
+
+        const sourceSessions = getSourceSessionsForCopy(srcDate);
+        if (sourceSessions.length === 0) {
+          elCopyDayError.textContent = `Dienoje ${srcDate} nėra aktyvių užsiėmimų, kuriuos būtų galima nukopijuoti.`;
+          elCopyDayError.style.display = 'block';
+          return;
+        }
+
+        const { validDates, invalidTokens } = parseTargetDatesList(elCopyTargetDatesText.value);
+        if (invalidTokens.length > 0) {
+          elCopyDayError.textContent = `Neteisingas datos formatas: ${invalidTokens.join(', ')}. Naudokite formatą MMMM-MM-DD.`;
+          elCopyDayError.style.display = 'block';
+          return;
+        }
+        if (validDates.length === 0) {
+          elCopyDayError.textContent = 'Nurodykite bent vieną tikslinę dieną (MMMM-MM-DD).';
+          elCopyDayError.style.display = 'block';
+          return;
+        }
+
+        const targetStatus = elCopyTargetStatus.value || 'suplanuota';
+        let createdCount = 0;
+
+        validDates.forEach(tDate => {
+          sourceSessions.forEach((src, idx) => {
+            const newRec = {
+              id: 's-' + Date.now() + '-' + idx + '-' + Math.random().toString(36).slice(2, 6),
+              client: src.client,
+              topic: 'Užsiėmimas',
+              date: tDate,
+              startTime: src.startTime,
+              duration: Number(src.duration || 30),
+              status: targetStatus,
+              notes: '',
+              attachments: []
+            };
+            ensureClientExistsByName(src.client);
+            state.sessions.push(newRec);
+            createdCount++;
+          });
+        });
+
+        selectedDate = parseISODate(validDates[0]);
+        closeModal('copyDayModal');
+        renderAll();
+        await saveState();
+        showToast(`Nukopijuota užsiėmimų: ${createdCount} (į ${validDates.length} d.)`);
       });
 
       // Paleidimas
