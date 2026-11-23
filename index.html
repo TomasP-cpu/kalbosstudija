@@ -965,6 +965,87 @@
     .stats-table tbody tr:hover { background: #f8fafc; }
     .stats-table tbody tr.clickable-row { cursor: pointer; }
     .stats-table tbody tr.active-month-row { background: var(--primary-soft); }
+    .stats-table tbody tr.expanded-parent-row {
+      background: #f1f5f9;
+    }
+
+    .client-expand-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .expand-chevron {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 10px;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .expanded-parent-row .expand-chevron {
+      background: var(--primary);
+      color: #fff;
+      transform: rotate(90deg);
+    }
+
+    /* Išskleista kliento mėnesių statistikos eilutė */
+    .client-months-drawer-row > td {
+      padding: 0 !important;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .client-months-drawer {
+      padding: 12px 18px 16px 42px;
+      border-left: 3px solid var(--primary);
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .client-months-drawer-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .client-sub-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .client-sub-table th {
+      background: #f1f5f9;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .client-sub-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .client-sub-table tr:last-child td { border-bottom: none; }
 
     .mini-bar-wrap {
       display: flex;
@@ -1461,6 +1542,7 @@
       .layout, .clients-layout { grid-template-columns: 1fr; padding: 12px; }
       .stats-layout { padding: 12px; }
       .stats-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .client-months-drawer { padding-left: 14px; }
       header { padding: 12px 16px; }
     }
     @media (max-width: 560px) {
@@ -1629,25 +1711,26 @@
           </div>
         </section>
 
-        <!-- 4 pagrindinės mėnesio rodiklių kortelės -->
+        <!-- 4 pagrindinės pasirinkto mėnesio rodiklių kortelės -->
         <div class="stats-kpi-grid" id="statsKpiGrid"></div>
 
-        <!-- Lankomumas pagal klientus pasirinktą mėnesį -->
+        <!-- Visų mėnesių bendras klientų lankomumas su išskleidžiamu mėnesių sąrašu -->
         <section class="card">
           <div class="cal-toolbar">
             <div class="toolbar-row">
-              <strong style="font-size:15px;" id="statsClientsTableTitle">Klientų lankomumas pasirinktą mėnesį</strong>
+              <strong style="font-size:15px;" id="statsClientsTableTitle">Klientų lankomumas (visų mėnesių suvestinė)</strong>
+              <span style="font-size:12.5px; color:var(--muted);">Spustelėkite ant kliento eilutės, kad išskleistumėte kiekvieno mėnesio statistiką</span>
             </div>
           </div>
           <div class="stats-table-wrap" id="statsClientsTableWrap"></div>
         </section>
 
-        <!-- Mėnesių suvestinė -->
+        <!-- Bendrų mėnesių suvestinė -->
         <section class="card">
           <div class="cal-toolbar">
             <div class="toolbar-row">
               <strong style="font-size:15px;">Mėnesių suvestinė (užsiėmimų skaičius ir lankomumas)</strong>
-              <span style="font-size:12.5px; color:var(--muted);">Spustelėkite mėnesio eilutę, kad peržiūrėtumėte detalią statistiką</span>
+              <span style="font-size:12.5px; color:var(--muted);">Spustelėkite mėnesio eilutę, kad viršuje matytumėte to mėnesio rodiklius</span>
             </div>
           </div>
           <div class="stats-table-wrap" id="statsMonthsTableWrap"></div>
@@ -1961,6 +2044,7 @@
       let selectedDate = startOfDay(new Date());
       let statsMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       let statsClientFilter = 'all';
+      let expandedStatsClients = new Set();
       let currentView = 'month';
       let sidebarTab = 'schedule';
       let searchQuery = '';
@@ -2080,6 +2164,12 @@
 
       function toMonthPrefix(d) {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      function formatMonthLabel(mKey) {
+        if (!mKey || mKey.length < 7) return mKey || '—';
+        const [, mNum] = mKey.split('-').map(Number);
+        return `${mKey} (${MONTHS_NOM[(mNum || 1) - 1]})`;
       }
 
       function isValidISODate(str) {
@@ -3169,7 +3259,7 @@
       // ==================== STATISTIKOS IR LANKOMUMO LOGIKA ====================
       function renderStatsPage() {
         const monthPrefix = toMonthPrefix(statsMonthDate);
-        const monthLabel = `${monthPrefix} (${MONTHS_NOM[statsMonthDate.getMonth()]})`;
+        const monthLabel = formatMonthLabel(monthPrefix);
         elStatsPeriodTitle.textContent = monthLabel;
 
         // Atnaujiname klientų filtro sąrašą
@@ -3184,6 +3274,7 @@
           elStatsClientFilter.value = 'all';
         }
 
+        // 1. Pasirinkto mėnesio KPI rodikliai viršuje
         const monthSessions = state.sessions.filter(s => {
           if (!s.date.startsWith(monthPrefix)) return false;
           if (statsClientFilter !== 'all' && s.client.toLowerCase() !== statsClientFilter.toLowerCase()) return false;
@@ -3211,7 +3302,7 @@
 
         elStatsKpiGrid.innerHTML = `
           <div class="stats-kpi-card">
-            <div class="stats-kpi-label">Užsiėmimai per mėnesį</div>
+            <div class="stats-kpi-label">Užsiėmimai (${monthLabel})</div>
             <div class="stats-kpi-value">${nonCancelled}</div>
             <div class="stats-kpi-sub">
               Įvyko: <strong>${completed}</strong> · Suplanuota/patv.: <strong>${planned + confirmed}</strong>
@@ -3219,7 +3310,7 @@
           </div>
 
           <div class="stats-kpi-card">
-            <div class="stats-kpi-label">Lankomumas (įvykę)</div>
+            <div class="stats-kpi-label">Lankomumas (${monthLabel})</div>
             <div class="stats-kpi-value" style="color:${attendancePct >= 80 ? 'var(--success)' : (attendancePct >= 50 ? 'var(--warning)' : 'var(--text)')};">
               ${attendancePct}%
             </div>
@@ -3244,14 +3335,62 @@
           </div>
         `;
 
-        // 1 lentelė: Lankomumas pagal klientus pasirinktą mėnesį
-        elStatsClientsTableTitle.textContent = `Klientų lankomumas – ${monthLabel}`;
-        const clientMap = new Map();
-        monthSessions.forEach(s => {
-          const key = s.client.trim();
-          if (!clientMap.has(key)) {
-            clientMap.set(key, {
-              name: key,
+        // 2. VISŲ MĖNESIŲ bendras klientų lankomumas su išskleidžiamu kiekvieno mėnesio sąrašu apačioje
+        elStatsClientsTableTitle.textContent = statsClientFilter === 'all'
+          ? 'Klientų lankomumas (visų mėnesių bendra statistika)'
+          : `Kliento lankomumas (visų mėnesių bendra statistika) – ${statsClientFilter}`;
+
+        const allClientMap = new Map();
+
+        // Įtraukiame visus sukurtus klientus (kad matytųsi ir tie, kurie dar turi 0 užsiėmimų)
+        state.clients.forEach(c => {
+          const cleanName = c.name.trim();
+          const normKey = cleanName.toLowerCase();
+          if (statsClientFilter !== 'all' && normKey !== statsClientFilter.toLowerCase()) return;
+          if (!allClientMap.has(normKey)) {
+            allClientMap.set(normKey, {
+              key: normKey,
+              name: cleanName,
+              clientId: c.id,
+              total: 0,
+              completed: 0,
+              upcoming: 0,
+              cancelled: 0,
+              completedMins: 0,
+              activeMins: 0,
+              months: new Map()
+            });
+          }
+        });
+
+        // Susumuojame visų mėnesių užsiėmimus kiekvienam klientui
+        state.sessions.forEach(s => {
+          const cleanName = s.client.trim();
+          const normKey = cleanName.toLowerCase();
+          if (statsClientFilter !== 'all' && normKey !== statsClientFilter.toLowerCase()) return;
+
+          if (!allClientMap.has(normKey)) {
+            const linked = state.clients.find(c => c.name.toLowerCase() === normKey);
+            allClientMap.set(normKey, {
+              key: normKey,
+              name: cleanName,
+              clientId: linked ? linked.id : null,
+              total: 0,
+              completed: 0,
+              upcoming: 0,
+              cancelled: 0,
+              completedMins: 0,
+              activeMins: 0,
+              months: new Map()
+            });
+          }
+
+          const rec = allClientMap.get(normKey);
+          const mKey = (s.date && s.date.length >= 7) ? s.date.slice(0, 7) : 'Kita';
+
+          if (!rec.months.has(mKey)) {
+            rec.months.set(mKey, {
+              monthKey: mKey,
               total: 0,
               completed: 0,
               upcoming: 0,
@@ -3260,24 +3399,41 @@
               activeMins: 0
             });
           }
-          const rec = clientMap.get(key);
+          const mRec = rec.months.get(mKey);
+          const dur = Number(s.duration || 30);
+
           rec.total++;
+          mRec.total++;
+
           if (s.status === 'ivyko') {
             rec.completed++;
-            rec.completedMins += Number(s.duration || 30);
-            rec.activeMins += Number(s.duration || 30);
+            rec.completedMins += dur;
+            rec.activeMins += dur;
+            mRec.completed++;
+            mRec.completedMins += dur;
+            mRec.activeMins += dur;
           } else if (s.status === 'atsaukta') {
             rec.cancelled++;
+            mRec.cancelled++;
           } else {
             rec.upcoming++;
-            rec.activeMins += Number(s.duration || 30);
+            rec.activeMins += dur;
+            mRec.upcoming++;
+            mRec.activeMins += dur;
           }
         });
 
-        const clientRows = Array.from(clientMap.values()).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'lt'));
+        // Jei pasirinktas vienas klientas iš filtro, automatiškai išskleidžiame jo mėnesius
+        if (statsClientFilter !== 'all') {
+          expandedStatsClients.add(statsClientFilter.toLowerCase());
+        }
 
-        if (clientRows.length === 0) {
-          elStatsClientsTableWrap.innerHTML = `<div style="padding:20px;"><div class="empty-state">Pasirinktą mėnesį (${monthLabel}) užsiėmimų nerasta.</div></div>`;
+        const allClientRows = Array.from(allClientMap.values()).sort(
+          (a, b) => b.total - a.total || a.name.localeCompare(b.name, 'lt')
+        );
+
+        if (allClientRows.length === 0) {
+          elStatsClientsTableWrap.innerHTML = `<div style="padding:20px;"><div class="empty-state">Klientų arba užsiėmimų duomenų dar nėra.</div></div>`;
         } else {
           elStatsClientsTableWrap.innerHTML = `
             <table class="stats-table">
@@ -3289,21 +3445,24 @@
                   <th>Suplanuota / Patv.</th>
                   <th>Atšaukta</th>
                   <th>Trukmė (įvyko / viso)</th>
-                  <th>Lankomumas</th>
+                  <th>Bendras lankomumas</th>
                 </tr>
               </thead>
               <tbody>
-                ${clientRows.map(r => {
+                ${allClientRows.map(r => {
                   const nonCanc = r.total - r.cancelled;
                   const pct = nonCanc > 0 ? Math.round((r.completed / nonCanc) * 100) : 0;
                   const fillClass = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
-                  const linked = state.clients.find(c => c.name.toLowerCase() === r.name.toLowerCase());
-                  return `
-                    <tr>
+                  const isExpanded = expandedStatsClients.has(r.key);
+                  const monthList = Array.from(r.months.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+
+                  let rowHtml = `
+                    <tr class="clickable-row ${isExpanded ? 'expanded-parent-row' : ''}" data-toggle-client-stats="${escapeHtml(r.key)}">
                       <td>
-                        ${linked
-                          ? `<a href="#" data-stats-open-client="${linked.id}" style="color:var(--primary); font-weight:700; text-decoration:none;">${escapeHtml(r.name)}</a>`
-                          : `<strong>${escapeHtml(r.name)}</strong>`}
+                        <span class="client-expand-cell">
+                          <span class="expand-chevron">▶</span>
+                          <span>${escapeHtml(r.name)}</span>
+                        </span>
                       </td>
                       <td><strong>${r.total}</strong></td>
                       <td><span class="badge badge-green">${r.completed}</span></td>
@@ -3318,21 +3477,90 @@
                       </td>
                     </tr>
                   `;
+
+                  if (isExpanded) {
+                    rowHtml += `
+                      <tr class="client-months-drawer-row">
+                        <td colspan="7">
+                          <div class="client-months-drawer">
+                            <div class="client-months-drawer-head">
+                              <span><strong>${escapeHtml(r.name)}</strong> – lankomumas pagal mėnesius (${monthList.length} mėn.)</span>
+                              ${r.clientId ? `<button type="button" class="btn btn-sm" data-stats-open-client="${r.clientId}">Atidaryti kliento kortelę →</button>` : ''}
+                            </div>
+                            ${monthList.length === 0 ? `
+                              <div style="font-size:13px; color:var(--muted); padding:6px 0;">Šiam klientui suplanuotų užsiėmimų dar nėra.</div>
+                            ` : `
+                              <table class="client-sub-table">
+                                <thead>
+                                  <tr>
+                                    <th>Mėnuo</th>
+                                    <th>Viso užsiėmimų</th>
+                                    <th>Įvyko</th>
+                                    <th>Suplanuota / Patv.</th>
+                                    <th>Atšaukta</th>
+                                    <th>Trukmė (įvyko / viso)</th>
+                                    <th>Mėnesio lankomumas</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  ${monthList.map(m => {
+                                    const mNonCanc = m.total - m.cancelled;
+                                    const mPct = mNonCanc > 0 ? Math.round((m.completed / mNonCanc) * 100) : 0;
+                                    const mFill = mPct >= 80 ? '' : (mPct >= 50 ? 'mid' : 'low');
+                                    return `
+                                      <tr>
+                                        <td><strong>${formatMonthLabel(m.monthKey)}</strong></td>
+                                        <td><strong>${m.total}</strong></td>
+                                        <td><span class="badge badge-green">${m.completed}</span></td>
+                                        <td><span class="badge badge-blue">${m.upcoming}</span></td>
+                                        <td>${m.cancelled > 0 ? `<span class="badge badge-red">${m.cancelled}</span>` : '0'}</td>
+                                        <td>${formatDuration(m.completedMins)} / ${formatDuration(m.activeMins)}</td>
+                                        <td>
+                                          <div class="mini-bar-wrap">
+                                            <div class="mini-bar"><div class="mini-bar-fill ${mFill}" style="width:${mPct}%"></div></div>
+                                            <strong style="min-width:38px; text-align:right;">${mPct}%</strong>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    `;
+                                  }).join('')}
+                                </tbody>
+                              </table>
+                            `}
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }
+
+                  return rowHtml;
                 }).join('')}
               </tbody>
             </table>
           `;
 
-          elStatsClientsTableWrap.querySelectorAll('[data-stats-open-client]').forEach(link => {
-            link.addEventListener('click', e => {
-              e.preventDefault();
-              selectedClientId = link.dataset.statsOpenClient;
+          elStatsClientsTableWrap.querySelectorAll('[data-toggle-client-stats]').forEach(row => {
+            row.addEventListener('click', () => {
+              const key = row.dataset.toggleClientStats;
+              if (expandedStatsClients.has(key)) {
+                expandedStatsClients.delete(key);
+              } else {
+                expandedStatsClients.add(key);
+              }
+              renderStatsPage();
+            });
+          });
+
+          elStatsClientsTableWrap.querySelectorAll('[data-stats-open-client]').forEach(btn => {
+            btn.addEventListener('click', e => {
+              e.stopPropagation();
+              selectedClientId = btn.dataset.statsOpenClient;
               switchPage('clients');
             });
           });
         }
 
-        // 2 lentelė: Visų mėnesių suvestinė
+        // 3. Visų mėnesių bendra suvestinė
         const monthKeysSet = new Set([toMonthPrefix(new Date()), monthPrefix]);
         state.sessions.forEach(s => {
           if (statsClientFilter !== 'all' && s.client.toLowerCase() !== statsClientFilter.toLowerCase()) return;
@@ -3369,8 +3597,7 @@
                 const pct = nonCanc > 0 ? Math.round((comp / nonCanc) * 100) : 0;
                 const fillClass = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
                 const mins = calcActiveMinutes(list);
-                const [, mNum] = mKey.split('-').map(Number);
-                const label = `${mKey} (${MONTHS_NOM[(mNum || 1) - 1]})`;
+                const label = formatMonthLabel(mKey);
                 const isSelected = mKey === monthPrefix;
 
                 return `
