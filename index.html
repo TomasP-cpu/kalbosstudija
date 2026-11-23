@@ -602,6 +602,139 @@
 
     .day-cell:hover { border-color: #94a3b8; background: #f8fafc; }
     .day-cell.other-month { background: #f8fafc; color: #94a3b8; }
+
+    /* Savaitgaliai – švelnus brukšniuotas fonas */
+    .day-cell.weekend-day,
+    .week-slot.weekend-day,
+    .day-row-content.weekend-day {
+      background-color: #f8fafc;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(148, 163, 184, 0.03) 0px,
+        rgba(148, 163, 184, 0.03) 6px,
+        rgba(148, 163, 184, 0.16) 6px,
+        rgba(148, 163, 184, 0.16) 12px
+      );
+    }
+    .day-cell.other-month.weekend-day {
+      background-color: #f1f5f9;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(148, 163, 184, 0.05) 0px,
+        rgba(148, 163, 184, 0.05) 6px,
+        rgba(148, 163, 184, 0.19) 6px,
+        rgba(148, 163, 184, 0.19) 12px
+      );
+    }
+    .day-cell.selected.weekend-day {
+      background-color: #eff6ff;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(37, 99, 235, 0.04) 0px,
+        rgba(37, 99, 235, 0.04) 6px,
+        rgba(37, 99, 235, 0.13) 6px,
+        rgba(37, 99, 235, 0.13) 12px
+      );
+    }
+    .week-header-cell.weekend-day,
+    .week-time-cell.weekend-day,
+    .day-row-time.weekend-day {
+      background-color: #f1f5f9;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(148, 163, 184, 0.04) 0px,
+        rgba(148, 163, 184, 0.04) 6px,
+        rgba(148, 163, 184, 0.15) 6px,
+        rgba(148, 163, 184, 0.15) 12px
+      );
+    }
+
+    /* Lietuvos valstybinės šventės ir nedarbo dienos */
+    .day-cell.holiday-day {
+      background-color: #fffbeb;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(245, 158, 11, 0.04) 0px,
+        rgba(245, 158, 11, 0.04) 7px,
+        rgba(245, 158, 11, 0.15) 7px,
+        rgba(245, 158, 11, 0.15) 14px
+      );
+      border-color: #fcd34d;
+    }
+    .day-cell.selected.holiday-day {
+      background-color: #fef3c7;
+      border-color: var(--primary);
+    }
+    .week-header-cell.holiday-day,
+    .week-slot.holiday-day,
+    .day-row-time.holiday-day,
+    .day-row-content.holiday-day {
+      background-color: #fffbeb;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(245, 158, 11, 0.04) 0px,
+        rgba(245, 158, 11, 0.04) 7px,
+        rgba(245, 158, 11, 0.14) 7px,
+        rgba(245, 158, 11, 0.14) 14px
+      );
+    }
+
+    .holiday-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 5px;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+
+    .cal-legend {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 11.5px;
+      color: var(--muted);
+      padding-top: 2px;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-swatch {
+      width: 16px;
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      display: inline-block;
+    }
+    .legend-swatch.weekend {
+      background-color: #f8fafc;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(148, 163, 184, 0.06) 0px,
+        rgba(148, 163, 184, 0.06) 3px,
+        rgba(148, 163, 184, 0.24) 3px,
+        rgba(148, 163, 184, 0.24) 6px
+      );
+    }
+    .legend-swatch.holiday {
+      background-color: #fef3c7;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(245, 158, 11, 0.08) 0px,
+        rgba(245, 158, 11, 0.08) 3px,
+        rgba(245, 158, 11, 0.26) 3px,
+        rgba(245, 158, 11, 0.26) 6px
+      );
+      border-color: #fcd34d;
+    }
     .day-cell.selected { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); background: var(--primary-soft); }
     .day-cell.today .day-num {
       background: var(--primary);
@@ -1674,6 +1807,10 @@
                 <option value="atsaukta">Atšaukta</option>
               </select>
             </div>
+            <div class="cal-legend">
+              <span class="legend-item"><span class="legend-swatch weekend"></span> Savaitgaliai (Št–Sk)</span>
+              <span class="legend-item"><span class="legend-swatch holiday"></span> Valstybinės šventės ir nedarbo dienos (LT)</span>
+            </div>
           </div>
           <div class="cal-body" id="calendarBody"></div>
         </section>
@@ -2306,6 +2443,66 @@
       }
 
       function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+
+      function getEasterSunday(year) {
+        const a = year % 19;
+        const b = Math.floor(year / 100);
+        const c = year % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const month = Math.floor((h + l - 7 * m + 114) / 31);
+        const day = ((h + l - 7 * m + 114) % 31) + 1;
+        return new Date(year, month - 1, day);
+      }
+
+      const ltHolidayCache = new Map();
+      function getLithuanianHolidaysForYear(year) {
+        if (ltHolidayCache.has(year)) return ltHolidayCache.get(year);
+        const map = new Map();
+        const addH = (dt, name) => {
+          const iso = toISODate(dt);
+          if (!map.has(iso)) map.set(iso, name);
+        };
+
+        // Fiksuotos Lietuvos valstybinės šventės ir nedarbo dienos (LR DK 123 str.)
+        addH(new Date(year, 0, 1), 'Naujųjų metų diena');
+        addH(new Date(year, 1, 16), 'Lietuvos valstybės atkūrimo diena');
+        addH(new Date(year, 2, 11), 'Lietuvos nepriklausomybės atkūrimo diena');
+        addH(new Date(year, 4, 1), 'Tarptautinė darbo diena');
+        addH(new Date(year, 5, 24), 'Rasos ir Joninių diena');
+        addH(new Date(year, 6, 6), 'Valstybės (Lietuvos karaliaus Mindaugo karūnavimo) ir Tautiškos giesmės diena');
+        addH(new Date(year, 7, 15), 'Žolinė (Švč. Mergelės Marijos ėmimo į dangų diena)');
+        addH(new Date(year, 10, 1), 'Visų šventųjų diena');
+        addH(new Date(year, 10, 2), 'Mirusiųjų atminimo (Vėlinių) diena');
+        addH(new Date(year, 11, 24), 'Šv. Kūčios');
+        addH(new Date(year, 11, 25), 'Šv. Kalėdos (1-oji diena)');
+        addH(new Date(year, 11, 26), 'Šv. Kalėdos (2-oji diena)');
+
+        // Kilnojamos šventės: Šv. Velykos ir Velykų antroji diena
+        const easter = getEasterSunday(year);
+        addH(easter, 'Šv. Velykos');
+        addH(addDays(easter, 1), 'Velykų antroji diena');
+
+        ltHolidayCache.set(year, map);
+        return map;
+      }
+
+      function getHolidayInfo(dateObjOrIso) {
+        const dt = typeof dateObjOrIso === 'string' ? parseISODate(dateObjOrIso) : dateObjOrIso;
+        const iso = toISODate(dt);
+        const hMap = getLithuanianHolidaysForYear(dt.getFullYear());
+        const name = hMap.get(iso) || null;
+        const wIdx = getWeekdayIndex(dt);
+        const isWeekend = wIdx === 5 || wIdx === 6; // Šeštadienis (5), Sekmadienis (6)
+        return { isHoliday: Boolean(name), holidayName: name, isWeekend };
+      }
 
       function getMonday(d) {
         const day = d.getDay();
@@ -3315,16 +3512,23 @@
           const daySessions = getSessionsByDate(dStr, filtered);
           const activeMins = calcActiveMinutes(daySessions);
 
+          const dayInfo = getHolidayInfo(d);
           const classes = ['day-cell'];
           if (isOther) classes.push('other-month');
+          if (dayInfo.isWeekend) classes.push('weekend-day');
+          if (dayInfo.isHoliday) classes.push('holiday-day');
           if (isToday) classes.push('today');
           if (isSelected) classes.push('selected');
 
-          html += `<div class="${classes.join(' ')}" data-date="${dStr}" title="${dStr}">`;
+          const cellTitle = dayInfo.holidayName ? `${dStr} – ${dayInfo.holidayName}` : dStr;
+          html += `<div class="${classes.join(' ')}" data-date="${dStr}" title="${escapeHtml(cellTitle)}">`;
           html += `<div class="day-cell-header">
             <span class="day-num">${d.getDate()}</span>
             ${activeMins > 0 ? `<span class="occupancy-pill" title="Užimtumas">${formatDuration(activeMins)}</span>` : ''}
           </div>`;
+          if (dayInfo.holidayName) {
+            html += `<div class="holiday-tag" title="${escapeHtml(dayInfo.holidayName)}">🇱🇹 ${escapeHtml(dayInfo.holidayName)}</div>`;
+          }
 
           const visible = daySessions.slice(0, 5);
           visible.forEach(s => {
@@ -3372,9 +3576,15 @@
           const dStr = toISODate(d);
           const daySessions = getSessionsByDate(dStr, filtered);
           const mins = calcActiveMinutes(daySessions);
+          const dayInfo = getHolidayInfo(d);
           const isToday = dStr === todayStr;
-          html += `<div class="week-header-cell ${isToday ? 'today' : ''}" data-date="${dStr}">
+          const hdrClasses = ['week-header-cell'];
+          if (isToday) hdrClasses.push('today');
+          if (dayInfo.isWeekend) hdrClasses.push('weekend-day');
+          if (dayInfo.isHoliday) hdrClasses.push('holiday-day');
+          html += `<div class="${hdrClasses.join(' ')}" data-date="${dStr}" title="${escapeHtml(dayInfo.holidayName ? dStr + ' – ' + dayInfo.holidayName : dStr)}">
             <div><strong>${WEEKDAYS_SHORT[idx]}</strong> ${dStr}</div>
+            ${dayInfo.holidayName ? `<div class="holiday-tag" style="margin-top:3px;">🇱🇹 ${escapeHtml(dayInfo.holidayName)}</div>` : ''}
             <div style="font-size:11px; color:var(--muted); margin-top:2px;">
               ${mins > 0 ? `${daySessions.filter(s => s.status !== 'atsaukta').length} užs. · ${formatDuration(mins)}` : 'Laisva'}
             </div>
@@ -3386,8 +3596,12 @@
           html += `<div class="week-time-cell">${hStr}</div>`;
           days.forEach(d => {
             const dStr = toISODate(d);
+            const dayInfo = getHolidayInfo(d);
+            const slotClasses = ['week-slot'];
+            if (dayInfo.isWeekend) slotClasses.push('weekend-day');
+            if (dayInfo.isHoliday) slotClasses.push('holiday-day');
             const slotSessions = getSessionsByDate(dStr, filtered).filter(s => Number(s.startTime.split(':')[0]) === hour);
-            html += `<div class="week-slot" data-date="${dStr}" data-time="${hStr}">`;
+            html += `<div class="${slotClasses.join(' ')}" data-date="${dStr}" data-time="${hStr}">`;
             slotSessions.forEach(s => {
               const end = minsToTime(timeToMins(s.startTime) + Number(s.duration));
               const attCount = (s.attachments || []).length;
@@ -3426,15 +3640,22 @@
 
       function renderDayView() {
         const dStr = toISODate(selectedDate);
+        const dayInfo = getHolidayInfo(selectedDate);
         const daySessions = getSessionsByDate(dStr);
         const activeCount = daySessions.filter(s => s.status !== 'atsaukta').length;
         const activeMins = calcActiveMinutes(daySessions);
         const pct = Math.min(100, Math.round((activeMins / DAILY_CAPACITY_MINS) * 100));
 
+        const extraDayExtraClasses = [
+          dayInfo.isWeekend ? 'weekend-day' : '',
+          dayInfo.isHoliday ? 'holiday-day' : ''
+        ].filter(Boolean).join(' ');
+
         let html = `
           <div class="day-occupancy-banner">
-            <div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <strong>Dienos užimtumas (${dStr}):</strong> ${activeCount} / ${SESSIONS_PER_DAY} užsiėm. · ${formatDuration(activeMins)} (${pct}% iš ${formatDuration(DAILY_CAPACITY_MINS)} / ${SESSIONS_PER_DAY} užs. dienos)
+              ${dayInfo.holidayName ? `<span class="holiday-tag">🇱🇹 ${escapeHtml(dayInfo.holidayName)}</span>` : (dayInfo.isWeekend ? `<span class="badge">Savaitgalis</span>` : '')}
             </div>
             <button class="btn btn-primary btn-sm" id="btnDayAdd">+ Pridėti šiai dienai</button>
           </div>
@@ -3446,8 +3667,8 @@
           const slotSessions = daySessions.filter(s => Number(s.startTime.split(':')[0]) === hour);
 
           html += `<div class="day-row">
-            <div class="day-row-time">${hStr}</div>
-            <div class="day-row-content" data-time="${hStr}">`;
+            <div class="day-row-time ${extraDayExtraClasses}">${hStr}</div>
+            <div class="day-row-content ${extraDayExtraClasses}" data-time="${hStr}">`;
 
           slotSessions.forEach(s => {
             const end = minsToTime(timeToMins(s.startTime) + Number(s.duration));
@@ -3485,7 +3706,9 @@
 
       function renderSidebar() {
         const dStr = toISODate(selectedDate);
-        elSidebarDateLabel.textContent = `${dStr} (${WEEKDAYS_FULL[getWeekdayIndex(selectedDate)]})`;
+        const dayInfo = getHolidayInfo(selectedDate);
+        elSidebarDateLabel.innerHTML = `${dStr} (${WEEKDAYS_FULL[getWeekdayIndex(selectedDate)]})` +
+          (dayInfo.holidayName ? ` <span class="holiday-tag" style="margin-left:4px;">🇱🇹 ${escapeHtml(dayInfo.holidayName)}</span>` : '');
 
         if (sidebarTab === 'schedule') {
           const daySessions = getSessionsByDate(dStr);
