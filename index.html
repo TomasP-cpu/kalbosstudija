@@ -125,6 +125,7 @@
       padding: 4px;
       border-radius: 9px;
       gap: 4px;
+      flex-wrap: wrap;
     }
 
     .main-nav-btn {
@@ -344,6 +345,17 @@
       flex: 1;
     }
 
+    .stats-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px 24px 28px;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+    }
+
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -375,6 +387,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
     }
 
     .period-title {
@@ -881,6 +894,99 @@
       line-height: 1.5;
     }
 
+    /* STATISTIKOS IR LANKOMUMO SKILTIS */
+    .stats-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .stats-kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stats-kpi-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+    }
+
+    .stats-kpi-value {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.15;
+    }
+
+    .stats-kpi-sub {
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .stats-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      text-align: left;
+    }
+
+    .stats-table th {
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .stats-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .stats-table tr:last-child td { border-bottom: none; }
+    .stats-table tbody tr:hover { background: #f8fafc; }
+    .stats-table tbody tr.clickable-row { cursor: pointer; }
+    .stats-table tbody tr.active-month-row { background: var(--primary-soft); }
+
+    .mini-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 120px;
+    }
+    .mini-bar {
+      flex: 1;
+      height: 7px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .mini-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--success);
+    }
+    .mini-bar-fill.mid { background: var(--warning); }
+    .mini-bar-fill.low { background: var(--danger); }
+
     /* KLIENTŲ SKILTIS */
     .clients-list-header {
       padding: 12px 14px;
@@ -1249,6 +1355,8 @@
       z-index: 50;
     }
     .modal-backdrop.open { display: flex; }
+    #taskModal { z-index: 56; }
+    #previewModal { z-index: 62; }
 
     .modal {
       background: #fff;
@@ -1311,6 +1419,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
       background: #f8fafc;
     }
 
@@ -1350,7 +1459,12 @@
 
     @media (max-width: 1024px) {
       .layout, .clients-layout { grid-template-columns: 1fr; padding: 12px; }
+      .stats-layout { padding: 12px; }
+      .stats-kpi-grid { grid-template-columns: repeat(2, 1fr); }
       header { padding: 12px 16px; }
+    }
+    @media (max-width: 560px) {
+      .stats-kpi-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -1394,6 +1508,7 @@
           <button class="main-nav-btn" data-page="clients">
             Klientai <span class="nav-count" id="clientsCountBadge">0</span>
           </button>
+          <button class="main-nav-btn" data-page="stats">Statistika ir lankomumas</button>
         </nav>
       </div>
       <div class="header-actions">
@@ -1492,6 +1607,53 @@
         </section>
       </main>
     </div>
+
+    <!-- 3 SKIRTUKAS: STATISTIKA IR LANKOMUMAS -->
+    <div class="page-view" id="pageStats">
+      <main class="stats-layout">
+        <section class="card">
+          <div class="cal-toolbar">
+            <div class="toolbar-row">
+              <div class="nav-group">
+                <button class="btn" id="btnStatsPrevMonth" title="Ankstesnis mėnuo">←</button>
+                <button class="btn" id="btnStatsCurMonth">Šis mėnuo</button>
+                <button class="btn" id="btnStatsNextMonth" title="Kitas mėnuo">→</button>
+                <span class="period-title" id="statsPeriodTitle"></span>
+              </div>
+              <div class="view-group">
+                <select class="select-input" id="statsClientFilter">
+                  <option value="all">Visi klientai</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4 pagrindinės mėnesio rodiklių kortelės -->
+        <div class="stats-kpi-grid" id="statsKpiGrid"></div>
+
+        <!-- Lankomumas pagal klientus pasirinktą mėnesį -->
+        <section class="card">
+          <div class="cal-toolbar">
+            <div class="toolbar-row">
+              <strong style="font-size:15px;" id="statsClientsTableTitle">Klientų lankomumas pasirinktą mėnesį</strong>
+            </div>
+          </div>
+          <div class="stats-table-wrap" id="statsClientsTableWrap"></div>
+        </section>
+
+        <!-- Mėnesių suvestinė -->
+        <section class="card">
+          <div class="cal-toolbar">
+            <div class="toolbar-row">
+              <strong style="font-size:15px;">Mėnesių suvestinė (užsiėmimų skaičius ir lankomumas)</strong>
+              <span style="font-size:12.5px; color:var(--muted);">Spustelėkite mėnesio eilutę, kad peržiūrėtumėte detalią statistiką</span>
+            </div>
+          </div>
+          <div class="stats-table-wrap" id="statsMonthsTableWrap"></div>
+        </section>
+      </main>
+    </div>
   </div>
 
   <!-- MODALAS 1: UŽSIĖMIMO KŪRIMAS / REDAGAVIMAS -->
@@ -1538,9 +1700,9 @@
             <div class="form-group">
               <label class="form-label" for="inputDuration">Trukmė</label>
               <select id="inputDuration" class="form-select">
-                <option value="30">30 min.</option>
+                <option value="30" selected>30 min.</option>
                 <option value="45">45 min.</option>
-                <option value="60" selected>1 val. (60 min.)</option>
+                <option value="60">1 val. (60 min.)</option>
                 <option value="90">1 val. 30 min.</option>
                 <option value="120">2 val. (120 min.)</option>
               </select>
@@ -1576,8 +1738,9 @@
           </div>
         </div>
         <div class="modal-footer">
-          <div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <button type="button" class="btn btn-danger" id="btnDeleteSession" style="display:none">Ištrinti</button>
+            <button type="button" class="btn btn-success" id="btnAssignTaskFromSession">📝 Skirti naują užduotį</button>
           </div>
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn" data-close="sessionModal">Atšaukti</button>
@@ -1654,6 +1817,7 @@
       <form id="taskForm">
         <div class="modal-body">
           <input type="hidden" id="taskId" />
+          <input type="hidden" id="taskTargetClientId" />
           <div class="form-group">
             <label class="form-label" for="taskTitle">Užduoties pavadinimas / aprašymas *</label>
             <input type="text" id="taskTitle" class="form-input" required placeholder="Pvz., Atlikti 3 pratimus iš pratybų (14 psl.)" />
@@ -1795,6 +1959,8 @@
       let currentUser = null;
       let activePage = 'calendar';
       let selectedDate = startOfDay(new Date());
+      let statsMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      let statsClientFilter = 'all';
       let currentView = 'month';
       let sidebarTab = 'schedule';
       let searchQuery = '';
@@ -1827,6 +1993,14 @@
       const elClientDetailWrap = document.getElementById('clientDetailWrap');
       const elClientSearchInput = document.getElementById('clientSearchInput');
       const elClientsDatalist = document.getElementById('clientsDatalist');
+
+      // Statistikos puslapio elementai
+      const elStatsPeriodTitle = document.getElementById('statsPeriodTitle');
+      const elStatsClientFilter = document.getElementById('statsClientFilter');
+      const elStatsKpiGrid = document.getElementById('statsKpiGrid');
+      const elStatsClientsTableTitle = document.getElementById('statsClientsTableTitle');
+      const elStatsClientsTableWrap = document.getElementById('statsClientsTableWrap');
+      const elStatsMonthsTableWrap = document.getElementById('statsMonthsTableWrap');
 
       // Užsiėmimo modalas
       const elSessionModal = document.getElementById('sessionModal');
@@ -1871,6 +2045,7 @@
       const elTaskForm = document.getElementById('taskForm');
       const elTaskModalTitle = document.getElementById('taskModalTitle');
       const elTaskId = document.getElementById('taskId');
+      const elTaskTargetClientId = document.getElementById('taskTargetClientId');
       const elTaskTitle = document.getElementById('taskTitle');
       const elTaskAssignedDate = document.getElementById('taskAssignedDate');
       const elTaskDueDate = document.getElementById('taskDueDate');
@@ -1903,6 +2078,10 @@
         return `${y}-${m}-${day}`;
       }
 
+      function toMonthPrefix(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      }
+
       function isValidISODate(str) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
         const [y, m, d] = str.split('-').map(Number);
@@ -1913,10 +2092,6 @@
       function parseISODate(str) {
         const [y, m, d] = str.split('-').map(Number);
         return new Date(y, m - 1, d);
-      }
-
-      function isValid24Time(str) {
-        return /^([01]\d|2[0-3]):[0-5]\d$/.test(str);
       }
 
       function normalize24Time(raw) {
@@ -1951,8 +2126,10 @@
       }
 
       function formatDuration(mins) {
-        const h = Math.floor(mins / 60);
-        const m = mins % 60;
+        const mTotal = Number(mins || 0);
+        if (mTotal === 0) return '0 min.';
+        const h = Math.floor(mTotal / 60);
+        const m = mTotal % 60;
         if (h > 0 && m > 0) return `${h} val. ${m} min.`;
         if (h > 0) return `${h} val.`;
         return `${m} min.`;
@@ -1985,6 +2162,29 @@
       function setSyncStatus(mode, text) {
         elSyncStatus.className = 'sync-status' + (mode ? ' ' + mode : '');
         elSyncStatus.textContent = text;
+      }
+
+      function ensureClientExistsByName(rawName) {
+        const cleanName = String(rawName || '').trim();
+        if (!cleanName) return null;
+        let client = state.clients.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
+        if (!client) {
+          client = {
+            id: 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+            name: cleanName,
+            phone: '',
+            email: '',
+            level: '',
+            status: 'aktyvus',
+            description: '',
+            createdAt: toISODate(new Date()),
+            attachments: [],
+            tasks: []
+          };
+          state.clients.push(client);
+          updateClientsDatalist();
+        }
+        return client;
       }
 
       // ==================== 24 VAL. LAIKO PASIRINKIKLIS ====================
@@ -2094,7 +2294,6 @@
           reader.onerror = () => reject(new Error('Nepavyko perskaityti nuotraukos'));
           reader.onload = () => {
             const rawDataUrl = reader.result;
-            // Mažus PNG/SVG/GIF paliekame originalius (pvz., logotipus su permatomu fonu)
             if ((file.type === 'image/png' || file.type === 'image/svg+xml' || file.type === 'image/gif') && file.size <= 450 * 1024) {
               resolve({
                 id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
@@ -2471,7 +2670,7 @@
               topic: 'Individuali anglų kalbos pamoka',
               date: todayStr,
               startTime: '10:00',
-              duration: 60,
+              duration: 30,
               status: 'patvirtinta',
               notes: 'Pasiruošti B2 kalbėjimo temai',
               attachments: []
@@ -2482,7 +2681,7 @@
               topic: 'Esė analizė ir kalbėjimo praktika',
               date: tomorrowStr,
               startTime: '18:00',
-              duration: 90,
+              duration: 30,
               status: 'suplanuota',
               notes: '',
               attachments: []
@@ -2600,7 +2799,7 @@
       function calcActiveMinutes(list) {
         return list
           .filter(s => s.status !== 'atsaukta')
-          .reduce((sum, s) => sum + Number(s.duration || 60), 0);
+          .reduce((sum, s) => sum + Number(s.duration || 30), 0);
       }
 
       function getClientAllAttachments(client) {
@@ -2635,8 +2834,10 @@
         updateClientsDatalist();
         if (activePage === 'calendar') {
           renderCalendarPage();
-        } else {
+        } else if (activePage === 'clients') {
           renderClientsPage();
+        } else if (activePage === 'stats') {
+          renderStatsPage();
         }
       }
 
@@ -2885,7 +3086,8 @@
                 ${s.notes ? `<div class="schedule-notes">${escapeHtml(s.notes)}</div>` : ''}
                 <div class="schedule-actions">
                   <button class="btn btn-sm" data-edit="${s.id}">Redaguoti</button>
-                  ${linkedClient ? `<button class="btn btn-sm" data-open-client="${linkedClient.id}">Kliento kortelė</button>` : ''}
+                  <button class="btn btn-success btn-sm" data-assign-task-name="${escapeHtml(s.client)}">+ Užduotis</button>
+                  ${linkedClient ? `<button class="btn btn-sm" data-open-client="${linkedClient.id}">Klientas</button>` : ''}
                   <button class="btn btn-sm btn-danger" data-del="${s.id}">Ištrinti</button>
                 </div>
               </div>
@@ -2894,6 +3096,12 @@
 
           elSidebarBody.querySelectorAll('[data-edit]').forEach(btn => {
             btn.addEventListener('click', () => openSessionModal(btn.dataset.edit));
+          });
+          elSidebarBody.querySelectorAll('[data-assign-task-name]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const client = ensureClientExistsByName(btn.dataset.assignTaskName);
+              if (client) openTaskModal(null, client.id);
+            });
           });
           elSidebarBody.querySelectorAll('[data-open-client]').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -2956,6 +3164,243 @@
             </div>
           `;
         }
+      }
+
+      // ==================== STATISTIKOS IR LANKOMUMO LOGIKA ====================
+      function renderStatsPage() {
+        const monthPrefix = toMonthPrefix(statsMonthDate);
+        const monthLabel = `${monthPrefix} (${MONTHS_NOM[statsMonthDate.getMonth()]})`;
+        elStatsPeriodTitle.textContent = monthLabel;
+
+        // Atnaujiname klientų filtro sąrašą
+        const sortedClients = [...state.clients].sort((a, b) => a.name.localeCompare(b.name, 'lt'));
+        const prevFilter = statsClientFilter;
+        elStatsClientFilter.innerHTML = `<option value="all">Visi klientai (${sortedClients.length})</option>` +
+          sortedClients.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
+        if (prevFilter !== 'all' && sortedClients.some(c => c.name === prevFilter)) {
+          elStatsClientFilter.value = prevFilter;
+        } else {
+          statsClientFilter = 'all';
+          elStatsClientFilter.value = 'all';
+        }
+
+        const monthSessions = state.sessions.filter(s => {
+          if (!s.date.startsWith(monthPrefix)) return false;
+          if (statsClientFilter !== 'all' && s.client.toLowerCase() !== statsClientFilter.toLowerCase()) return false;
+          return true;
+        });
+
+        const totalAll = monthSessions.length;
+        const completed = monthSessions.filter(s => s.status === 'ivyko').length;
+        const confirmed = monthSessions.filter(s => s.status === 'patvirtinta').length;
+        const planned = monthSessions.filter(s => s.status === 'suplanuota').length;
+        const cancelled = monthSessions.filter(s => s.status === 'atsaukta').length;
+        const nonCancelled = totalAll - cancelled;
+
+        const attendancePct = nonCancelled > 0 ? Math.round((completed / nonCancelled) * 100) : 0;
+        const cancelPct = totalAll > 0 ? Math.round((cancelled / totalAll) * 100) : 0;
+
+        const completedMins = monthSessions
+          .filter(s => s.status === 'ivyko')
+          .reduce((sum, s) => sum + Number(s.duration || 30), 0);
+        const activeMins = calcActiveMinutes(monthSessions);
+
+        const uniqueClientsCount = new Set(
+          monthSessions.filter(s => s.status !== 'atsaukta').map(s => s.client.trim().toLowerCase())
+        ).size;
+
+        elStatsKpiGrid.innerHTML = `
+          <div class="stats-kpi-card">
+            <div class="stats-kpi-label">Užsiėmimai per mėnesį</div>
+            <div class="stats-kpi-value">${nonCancelled}</div>
+            <div class="stats-kpi-sub">
+              Įvyko: <strong>${completed}</strong> · Suplanuota/patv.: <strong>${planned + confirmed}</strong>
+            </div>
+          </div>
+
+          <div class="stats-kpi-card">
+            <div class="stats-kpi-label">Lankomumas (įvykę)</div>
+            <div class="stats-kpi-value" style="color:${attendancePct >= 80 ? 'var(--success)' : (attendancePct >= 50 ? 'var(--warning)' : 'var(--text)')};">
+              ${attendancePct}%
+            </div>
+            <div class="stats-kpi-sub">Įvyko ${completed} iš ${nonCancelled} neatsauktų užsiėmimų</div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${attendancePct}%; background:${attendancePct >= 80 ? 'var(--success)' : (attendancePct >= 50 ? 'var(--warning)' : 'var(--primary)')};"></div>
+            </div>
+          </div>
+
+          <div class="stats-kpi-card">
+            <div class="stats-kpi-label">Atšaukti užsiėmimai</div>
+            <div class="stats-kpi-value" style="color:${cancelled > 0 ? 'var(--danger)' : 'var(--text)'};">${cancelled}</div>
+            <div class="stats-kpi-sub">${totalAll > 0 ? `${cancelPct}% nuo visų (${totalAll}) įrašų` : 'Šį mėnesį įrašų nėra'}</div>
+          </div>
+
+          <div class="stats-kpi-card">
+            <div class="stats-kpi-label">Bendra trukmė ir klientai</div>
+            <div class="stats-kpi-value">${formatDuration(completedMins)}</div>
+            <div class="stats-kpi-sub">
+              Viso suplanuota: ${formatDuration(activeMins)} · Klientų: <strong>${uniqueClientsCount}</strong>
+            </div>
+          </div>
+        `;
+
+        // 1 lentelė: Lankomumas pagal klientus pasirinktą mėnesį
+        elStatsClientsTableTitle.textContent = `Klientų lankomumas – ${monthLabel}`;
+        const clientMap = new Map();
+        monthSessions.forEach(s => {
+          const key = s.client.trim();
+          if (!clientMap.has(key)) {
+            clientMap.set(key, {
+              name: key,
+              total: 0,
+              completed: 0,
+              upcoming: 0,
+              cancelled: 0,
+              completedMins: 0,
+              activeMins: 0
+            });
+          }
+          const rec = clientMap.get(key);
+          rec.total++;
+          if (s.status === 'ivyko') {
+            rec.completed++;
+            rec.completedMins += Number(s.duration || 30);
+            rec.activeMins += Number(s.duration || 30);
+          } else if (s.status === 'atsaukta') {
+            rec.cancelled++;
+          } else {
+            rec.upcoming++;
+            rec.activeMins += Number(s.duration || 30);
+          }
+        });
+
+        const clientRows = Array.from(clientMap.values()).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'lt'));
+
+        if (clientRows.length === 0) {
+          elStatsClientsTableWrap.innerHTML = `<div style="padding:20px;"><div class="empty-state">Pasirinktą mėnesį (${monthLabel}) užsiėmimų nerasta.</div></div>`;
+        } else {
+          elStatsClientsTableWrap.innerHTML = `
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Klientas</th>
+                  <th>Viso užsiėmimų</th>
+                  <th>Įvyko</th>
+                  <th>Suplanuota / Patv.</th>
+                  <th>Atšaukta</th>
+                  <th>Trukmė (įvyko / viso)</th>
+                  <th>Lankomumas</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${clientRows.map(r => {
+                  const nonCanc = r.total - r.cancelled;
+                  const pct = nonCanc > 0 ? Math.round((r.completed / nonCanc) * 100) : 0;
+                  const fillClass = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
+                  const linked = state.clients.find(c => c.name.toLowerCase() === r.name.toLowerCase());
+                  return `
+                    <tr>
+                      <td>
+                        ${linked
+                          ? `<a href="#" data-stats-open-client="${linked.id}" style="color:var(--primary); font-weight:700; text-decoration:none;">${escapeHtml(r.name)}</a>`
+                          : `<strong>${escapeHtml(r.name)}</strong>`}
+                      </td>
+                      <td><strong>${r.total}</strong></td>
+                      <td><span class="badge badge-green">${r.completed}</span></td>
+                      <td><span class="badge badge-blue">${r.upcoming}</span></td>
+                      <td>${r.cancelled > 0 ? `<span class="badge badge-red">${r.cancelled}</span>` : '0'}</td>
+                      <td>${formatDuration(r.completedMins)} / ${formatDuration(r.activeMins)}</td>
+                      <td>
+                        <div class="mini-bar-wrap">
+                          <div class="mini-bar"><div class="mini-bar-fill ${fillClass}" style="width:${pct}%"></div></div>
+                          <strong style="min-width:38px; text-align:right;">${pct}%</strong>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          `;
+
+          elStatsClientsTableWrap.querySelectorAll('[data-stats-open-client]').forEach(link => {
+            link.addEventListener('click', e => {
+              e.preventDefault();
+              selectedClientId = link.dataset.statsOpenClient;
+              switchPage('clients');
+            });
+          });
+        }
+
+        // 2 lentelė: Visų mėnesių suvestinė
+        const monthKeysSet = new Set([toMonthPrefix(new Date()), monthPrefix]);
+        state.sessions.forEach(s => {
+          if (statsClientFilter !== 'all' && s.client.toLowerCase() !== statsClientFilter.toLowerCase()) return;
+          if (s.date && s.date.length >= 7) monthKeysSet.add(s.date.slice(0, 7));
+        });
+
+        const sortedMonths = Array.from(monthKeysSet).sort((a, b) => b.localeCompare(a));
+
+        elStatsMonthsTableWrap.innerHTML = `
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th>Mėnuo</th>
+                <th>Viso įrašų</th>
+                <th>Įvyko</th>
+                <th>Suplanuota / Patv.</th>
+                <th>Atšaukta</th>
+                <th>Bendra trukmė</th>
+                <th>Lankomumas</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sortedMonths.map(mKey => {
+                const list = state.sessions.filter(s => {
+                  if (!s.date.startsWith(mKey)) return false;
+                  if (statsClientFilter !== 'all' && s.client.toLowerCase() !== statsClientFilter.toLowerCase()) return false;
+                  return true;
+                });
+                const tot = list.length;
+                const comp = list.filter(s => s.status === 'ivyko').length;
+                const canc = list.filter(s => s.status === 'atsaukta').length;
+                const upc = tot - comp - canc;
+                const nonCanc = tot - canc;
+                const pct = nonCanc > 0 ? Math.round((comp / nonCanc) * 100) : 0;
+                const fillClass = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
+                const mins = calcActiveMinutes(list);
+                const [, mNum] = mKey.split('-').map(Number);
+                const label = `${mKey} (${MONTHS_NOM[(mNum || 1) - 1]})`;
+                const isSelected = mKey === monthPrefix;
+
+                return `
+                  <tr class="clickable-row ${isSelected ? 'active-month-row' : ''}" data-select-month="${mKey}">
+                    <td><strong>${label}</strong></td>
+                    <td>${tot}</td>
+                    <td><span class="badge badge-green">${comp}</span></td>
+                    <td><span class="badge badge-blue">${upc}</span></td>
+                    <td>${canc > 0 ? `<span class="badge badge-red">${canc}</span>` : '0'}</td>
+                    <td>${formatDuration(mins)}</td>
+                    <td>
+                      <div class="mini-bar-wrap">
+                        <div class="mini-bar"><div class="mini-bar-fill ${fillClass}" style="width:${pct}%"></div></div>
+                        <strong style="min-width:38px; text-align:right;">${pct}%</strong>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+
+        elStatsMonthsTableWrap.querySelectorAll('[data-select-month]').forEach(row => {
+          row.addEventListener('click', () => {
+            const [y, m] = row.dataset.selectMonth.split('-').map(Number);
+            statsMonthDate = new Date(y, m - 1, 1);
+            renderStatsPage();
+          });
+        });
       }
 
       // ==================== KLIENTŲ SKILTIES LOGIKA ====================
@@ -3157,7 +3602,7 @@
         });
         document.getElementById('btnEditCurrentClient').addEventListener('click', () => openClientModal(client.id));
         document.getElementById('btnDeleteCurrentClient').addEventListener('click', () => deleteClient(client.id));
-        document.getElementById('btnAddTask').addEventListener('click', () => openTaskModal(null));
+        document.getElementById('btnAddTask').addEventListener('click', () => openTaskModal(null, client.id));
 
         // Tiesioginis failo įkėlimas kliento kortelėje
         const elDirectInput = document.getElementById('clientDirectFileInput');
@@ -3215,7 +3660,7 @@
           btn.addEventListener('click', () => toggleTaskStatus(client.id, btn.dataset.toggleTask));
         });
         elClientDetailWrap.querySelectorAll('[data-edit-task]').forEach(btn => {
-          btn.addEventListener('click', () => openTaskModal(btn.dataset.editTask));
+          btn.addEventListener('click', () => openTaskModal(btn.dataset.editTask, client.id));
         });
         elClientDetailWrap.querySelectorAll('[data-del-task]').forEach(btn => {
           btn.addEventListener('click', () => deleteTask(client.id, btn.dataset.delTask));
@@ -3240,7 +3685,7 @@
           elInputTopic.value = s.topic;
           elInputDate.value = s.date;
           elInputTime.value = normalize24Time(s.startTime) || '09:00';
-          elInputDuration.value = String(s.duration);
+          elInputDuration.value = String(s.duration || 30);
           elInputStatus.value = s.status;
           elInputNotes.value = s.notes || '';
           draftSessionAttachments = Array.isArray(s.attachments) ? s.attachments.map(a => ({ ...a })) : [];
@@ -3251,7 +3696,7 @@
           elInputClient.value = defaultClientName;
           elInputDate.value = defaultDate || toISODate(selectedDate);
           elInputTime.value = normalize24Time(defaultTime) || '09:00';
-          elInputDuration.value = '60';
+          elInputDuration.value = '30';
           elInputStatus.value = 'suplanuota';
           draftSessionAttachments = [];
           elBtnDeleteSession.style.display = 'none';
@@ -3264,10 +3709,24 @@
         elInputClient.focus();
       }
 
+      // Mygtukas „Skirti naują užduotį“ tiesiai užsiėmimo lange
+      document.getElementById('btnAssignTaskFromSession').addEventListener('click', () => {
+        const clientName = elInputClient.value.trim();
+        if (!clientName) {
+          alert('Pirmiausia įveskite arba pasirinkite klientą.');
+          elInputClient.focus();
+          return;
+        }
+        const client = ensureClientExistsByName(clientName);
+        if (client) {
+          openTaskModal(null, client.id);
+        }
+      });
+
       function checkConflict() {
         const date = elInputDate.value.trim();
         const time = normalize24Time(elInputTime.value);
-        const dur = Number(elInputDuration.value || 60);
+        const dur = Number(elInputDuration.value || 30);
         const currentId = elSessionId.value;
         if (!isValidISODate(date) || !time) {
           elConflictWarning.style.display = 'none';
@@ -3334,15 +3793,17 @@
         showToast('Klientas ištrintas');
       }
 
-      function openTaskModal(taskId = null) {
-        const client = state.clients.find(c => c.id === selectedClientId);
+      function openTaskModal(taskId = null, explicitClientId = null) {
+        const targetCid = explicitClientId || selectedClientId;
+        const client = state.clients.find(c => c.id === targetCid);
         if (!client) return;
         elTaskForm.reset();
+        elTaskTargetClientId.value = client.id;
 
         if (taskId) {
           const t = (client.tasks || []).find(x => x.id === taskId);
           if (!t) return;
-          elTaskModalTitle.textContent = 'Redaguoti užduotį';
+          elTaskModalTitle.textContent = `Redaguoti užduotį – ${client.name}`;
           elTaskId.value = t.id;
           elTaskTitle.value = t.title;
           elTaskAssignedDate.value = t.assignedDate || toISODate(new Date());
@@ -3381,7 +3842,7 @@
         if (!client) return;
         client.tasks = (client.tasks || []).filter(t => t.id !== taskId);
         closeModal('taskModal');
-        renderClientsPage();
+        renderAll();
         await saveState();
         showToast('Užduotis ištrinta');
       }
@@ -3397,6 +3858,7 @@
         });
         document.getElementById('pageCalendar').classList.toggle('active', page === 'calendar');
         document.getElementById('pageClients').classList.toggle('active', page === 'clients');
+        document.getElementById('pageStats').classList.toggle('active', page === 'stats');
         renderAll();
       }
 
@@ -3432,7 +3894,8 @@
         if (elClientId.value) deleteClient(elClientId.value);
       });
       elBtnDeleteTaskModal.addEventListener('click', () => {
-        if (selectedClientId && elTaskId.value) deleteTask(selectedClientId, elTaskId.value);
+        const targetCid = elTaskTargetClientId.value || selectedClientId;
+        if (targetCid && elTaskId.value) deleteTask(targetCid, elTaskId.value);
       });
 
       // Užsiėmimo išsaugojimas
@@ -3467,20 +3930,7 @@
           attachments: draftSessionAttachments.map(a => ({ ...a }))
         };
 
-        if (clientName && !state.clients.some(c => c.name.toLowerCase() === clientName.toLowerCase())) {
-          state.clients.push({
-            id: 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
-            name: clientName,
-            phone: '',
-            email: '',
-            level: '',
-            status: 'aktyvus',
-            description: '',
-            createdAt: toISODate(new Date()),
-            attachments: [],
-            tasks: []
-          });
-        }
+        ensureClientExistsByName(clientName);
 
         if (id) {
           const idx = state.sessions.findIndex(s => s.id === id);
@@ -3562,7 +4012,8 @@
           return;
         }
 
-        const client = state.clients.find(c => c.id === selectedClientId);
+        const targetCid = elTaskTargetClientId.value || selectedClientId;
+        const client = state.clients.find(c => c.id === targetCid);
         if (!client) return;
         if (!Array.isArray(client.tasks)) client.tasks = [];
 
@@ -3579,14 +4030,14 @@
         if (tid) {
           const idx = client.tasks.findIndex(t => t.id === tid);
           if (idx !== -1) client.tasks[idx] = taskData;
-          showToast('Užduotis atnaujinta');
+          showToast(`Užduotis atnaujinta (${client.name})`);
         } else {
           client.tasks.unshift(taskData);
-          showToast('Užduotis paskirta klientui');
+          showToast(`Užduotis paskirta klientui „${client.name}“`);
         }
 
         closeModal('taskModal');
-        renderClientsPage();
+        renderAll();
         await saveState();
       });
 
@@ -3616,6 +4067,28 @@
           selectedDate = addDays(selectedDate, 1);
         }
         renderCalendarPage();
+      });
+
+      // Statistikos puslapio navigacija
+      document.getElementById('btnStatsPrevMonth').addEventListener('click', () => {
+        statsMonthDate = new Date(statsMonthDate.getFullYear(), statsMonthDate.getMonth() - 1, 1);
+        renderStatsPage();
+      });
+
+      document.getElementById('btnStatsCurMonth').addEventListener('click', () => {
+        const now = new Date();
+        statsMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        renderStatsPage();
+      });
+
+      document.getElementById('btnStatsNextMonth').addEventListener('click', () => {
+        statsMonthDate = new Date(statsMonthDate.getFullYear(), statsMonthDate.getMonth() + 1, 1);
+        renderStatsPage();
+      });
+
+      elStatsClientFilter.addEventListener('change', e => {
+        statsClientFilter = e.target.value;
+        renderStatsPage();
       });
 
       document.querySelectorAll('.view-btn').forEach(btn => {
