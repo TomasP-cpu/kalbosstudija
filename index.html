@@ -2109,7 +2109,11 @@
       const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
       const LOCAL_BACKUP_KEY = 'lt_uzsiemimu_kalendorius_v2';
-      const DAILY_CAPACITY_MINS = 480;
+      const SESSIONS_PER_DAY = 5;
+      const SESSION_MINS_DEFAULT = 30;
+      const WORKDAYS_PER_WEEK = 2;
+      const DAILY_CAPACITY_MINS = SESSIONS_PER_DAY * SESSION_MINS_DEFAULT; // 150 min. = 2 val. 30 min. (5 užsiėm. x 30 min.)
+      const WEEKLY_CAPACITY_MINS = WORKDAYS_PER_WEEK * DAILY_CAPACITY_MINS; // 300 min. = 5 val. (10 užsiėm. x 30 min.)
       const MAX_RAW_FILE_BYTES = 3 * 1024 * 1024; // 3 MB ne-vaizdo failams
 
       const MONTHS_NOM = [
@@ -3180,6 +3184,47 @@
           .sort((a, b) => a.startTime.localeCompare(b.startTime));
       }
 
+      function getMonthCapacityMins(year, monthIndex) {
+        // Nustatome 2 darbo savaitės dienas per savaitę (pagal esamus mėnesio užsiėmimus arba pagal nutylėjimą An/Kt)
+        const prefix = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+        const mSessions = state.sessions.filter(s => s.date && s.date.startsWith(prefix) && s.status !== 'atsaukta');
+        const dayCounts = new Map();
+        mSessions.forEach(s => {
+          const idx = getWeekdayIndex(parseISODate(s.date));
+          dayCounts.set(idx, (dayCounts.get(idx) || 0) + 1);
+        });
+
+        let activeWeekdays = new Set();
+        if (dayCounts.size >= WORKDAYS_PER_WEEK) {
+          const topDays = Array.from(dayCounts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, WORKDAYS_PER_WEEK)
+            .map(x => x[0]);
+          activeWeekdays = new Set(topDays);
+        } else if (dayCounts.size > 0) {
+          activeWeekdays = new Set(dayCounts.keys());
+          // Jei šiame mėnesyje kol kas tik 1 darbo dienos įrašai, papildome antrą darbo dieną (pvz., An=1, Kt=3)
+          const fallbackOrder = [1, 3, 0, 2, 4];
+          for (const dIdx of fallbackOrder) {
+            if (activeWeekdays.size >= WORKDAYS_PER_WEEK) break;
+            activeWeekdays.add(dIdx);
+          }
+        } else {
+          // Pagal nutylėjimą 2 darbo dienos per savaitę: Antradienis (1) ir Ketvirtadienis (3)
+          activeWeekdays = new Set([1, 3]);
+        }
+
+        const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+        let workdaysCount = 0;
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dt = new Date(year, monthIndex, day);
+          if (activeWeekdays.has(getWeekdayIndex(dt))) {
+            workdaysCount++;
+          }
+        }
+        return Math.max(WEEKLY_CAPACITY_MINS, workdaysCount * DAILY_CAPACITY_MINS);
+      }
+
       function calcActiveMinutes(list) {
         return list
           .filter(s => s.status !== 'atsaukta')
@@ -3388,7 +3433,7 @@
         let html = `
           <div class="day-occupancy-banner">
             <div>
-              <strong>Dienos užimtumas (${dStr}):</strong> ${activeCount} užsiėm. · ${formatDuration(activeMins)} (${pct}% iš 8 val. dienos)
+              <strong>Dienos užimtumas (${dStr}):</strong> ${activeCount} / ${SESSIONS_PER_DAY} užsiėm. · ${formatDuration(activeMins)} (${pct}% iš ${formatDuration(DAILY_CAPACITY_MINS)} / ${SESSIONS_PER_DAY} užs. dienos)
             </div>
             <button class="btn btn-primary btn-sm" id="btnDayAdd">+ Pridėti šiai dienai</button>
           </div>
@@ -3500,6 +3545,7 @@
           const filtered = getFilteredSessions();
 
           const dayList = filtered.filter(s => s.date === dStr);
+          const dayActiveCount = dayList.filter(s => s.status !== 'atsaukta').length;
           const dayMins = calcActiveMinutes(dayList);
           const dayPct = Math.min(100, Math.round((dayMins / DAILY_CAPACITY_MINS) * 100));
 
@@ -3508,13 +3554,17 @@
           const monStr = toISODate(mon);
           const sunStr = toISODate(sun);
           const weekList = filtered.filter(s => s.date >= monStr && s.date <= sunStr);
+          const weekActiveCount = weekList.filter(s => s.status !== 'atsaukta').length;
           const weekMins = calcActiveMinutes(weekList);
-          const weekPct = Math.min(100, Math.round((weekMins / (DAILY_CAPACITY_MINS * 5)) * 100));
+          const weekPct = Math.min(100, Math.round((weekMins / WEEKLY_CAPACITY_MINS) * 100));
 
           const monthPrefix = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
           const monthList = filtered.filter(s => s.date.startsWith(monthPrefix));
+          const monthActiveCount = monthList.filter(s => s.status !== 'atsaukta').length;
           const monthMins = calcActiveMinutes(monthList);
-          const monthPct = Math.min(100, Math.round((monthMins / (DAILY_CAPACITY_MINS * 21)) * 100));
+          const monthCapMins = getMonthCapacityMins(selectedDate.getFullYear(), selectedDate.getMonth());
+          const monthCapSessions = Math.round(monthCapMins / SESSION_MINS_DEFAULT);
+          const monthPct = Math.min(100, Math.round((monthMins / monthCapMins) * 100));
 
           const counts = { suplanuota: 0, patvirtinta: 0, ivyko: 0, atsaukta: 0 };
           monthList.forEach(s => { if (counts[s.status] !== undefined) counts[s.status]++; });
@@ -3523,21 +3573,21 @@
             <div class="stat-card">
               <div class="stat-title">DIENOS UŽIMTUMAS (${dStr})</div>
               <div class="stat-main">${formatDuration(dayMins)}</div>
-              <div class="stat-sub">${dayList.filter(s => s.status !== 'atsaukta').length} aktyvūs užsiėmimai · ${dayPct}% (iš 8 val.)</div>
+              <div class="stat-sub">${dayActiveCount} / ${SESSIONS_PER_DAY} užsiėm. · ${dayPct}% (iš ${formatDuration(DAILY_CAPACITY_MINS)})</div>
               <div class="progress-bar"><div class="progress-fill" style="width:${dayPct}%"></div></div>
             </div>
 
             <div class="stat-card">
               <div class="stat-title">SAVAITĖS UŽIMTUMAS (${monStr} – ${sunStr})</div>
               <div class="stat-main">${formatDuration(weekMins)}</div>
-              <div class="stat-sub">${weekList.filter(s => s.status !== 'atsaukta').length} aktyvūs užsiėmimai · ${weekPct}% (iš 40 val.)</div>
+              <div class="stat-sub">${weekActiveCount} / ${SESSIONS_PER_DAY * WORKDAYS_PER_WEEK} užsiėm. · ${weekPct}% (iš ${formatDuration(WEEKLY_CAPACITY_MINS)})</div>
               <div class="progress-bar"><div class="progress-fill" style="width:${weekPct}%"></div></div>
             </div>
 
             <div class="stat-card">
               <div class="stat-title">MĖNESIO UŽIMTUMAS (${monthPrefix} · ${MONTHS_NOM[selectedDate.getMonth()]})</div>
               <div class="stat-main">${formatDuration(monthMins)}</div>
-              <div class="stat-sub">${monthList.filter(s => s.status !== 'atsaukta').length} aktyvūs užsiėmimai · ${monthPct}%</div>
+              <div class="stat-sub">${monthActiveCount} / ${monthCapSessions} užsiėm. · ${monthPct}% (iš ${formatDuration(monthCapMins)})</div>
               <div class="progress-bar"><div class="progress-fill" style="width:${monthPct}%"></div></div>
               <div class="status-list">
                 <div class="status-row"><span>Suplanuota:</span><strong>${counts.suplanuota}</strong></div>
