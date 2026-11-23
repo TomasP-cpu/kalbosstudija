@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Užsiėmimų kalendorius ir klientai</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -1617,6 +1618,7 @@
       <div class="header-actions">
         <button class="btn btn-primary" id="btnNewSession">+ Naujas užsiėmimas</button>
         <button class="btn" id="btnNewClientHeader">+ Naujas klientas</button>
+        <button class="btn" id="btnOpenPlanImportModal" title="Importuoti planavimo Excel (.xlsx, .xls, .csv) failą">📥 Importuoti planavimą</button>
         <span class="sync-status" id="syncStatus" title="Bendri duomenys sinchronizuojami tarp visų paskyrų ir įrenginių">☁️ Sinchronizuota</span>
         <button class="btn btn-sm" id="btnManualSync" title="Atnaujinti duomenis iš debesies">↻</button>
 
@@ -1994,6 +1996,43 @@
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn" data-close="passwordModal">Atšaukti</button>
             <button type="submit" class="btn btn-primary" id="btnSavePassword">Išsaugoti slaptažodį</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODALAS: PLANAVIMO EXCEL IMPORTAS -->
+  <div class="modal-backdrop" id="planImportModal">
+    <div class="modal" style="max-width:540px;">
+      <div class="modal-header">
+        <span>📥 Importuoti planavimą (.xlsx / .csv)</span>
+        <button class="btn btn-sm" data-close="planImportModal">✕</button>
+      </div>
+      <form id="planImportForm">
+        <div class="modal-body">
+          <p style="font-size:13px; color:var(--muted); line-height:1.5;">
+            Pasirinkite Excel arba CSV failą su stulpeliais <strong>Data</strong>, <strong>Laikas</strong>, <strong>Vaikas</strong>, <strong>Planas</strong> ir <strong>Pastabos</strong> (pvz., <em>Logo_Planai pratyboms.xlsx</em>). Trūkstami vaikai bus sukurti automatiškai, o esami įrašai nedubliuojami.
+          </p>
+          <div class="form-group">
+            <label class="form-label" for="planImportFile">Failas (.xlsx, .xls, .csv) *</label>
+            <input type="file" id="planImportFile" class="form-input" accept=".xlsx,.xls,.csv" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="planImportMode">Ką daryti su jau esančiais tais pačiais įrašais?</label>
+            <select id="planImportMode" class="form-select">
+              <option value="merge_skip_dup" selected>Pridėti naujus ir praleisti dublikatus (saugiausia)</option>
+              <option value="update_existing">Pridėti naujus ir atnaujinti esamų planą / pastabas / būseną</option>
+            </select>
+          </div>
+          <div id="planImportPreview" style="display:none; padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px solid var(--border); font-size:12.5px; line-height:1.5;"></div>
+          <div class="form-error-box" id="planImportError"></div>
+        </div>
+        <div class="modal-footer">
+          <div></div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn" data-close="planImportModal">Atšaukti</button>
+            <button type="submit" class="btn btn-primary" id="btnRunPlanImport" disabled>Importuoti į kalendorių</button>
           </div>
         </div>
       </form>
@@ -4551,6 +4590,281 @@
       elClientSearchInput.addEventListener('input', e => {
         clientSearchQuery = e.target.value;
         renderClientsPage();
+      });
+
+      // ==================== PLANAVIMO EXCEL / CSV IMPORTAS ====================
+      const elPlanImportModal = document.getElementById('planImportModal');
+      const elPlanImportForm = document.getElementById('planImportForm');
+      const elPlanImportFile = document.getElementById('planImportFile');
+      const elPlanImportMode = document.getElementById('planImportMode');
+      const elPlanImportPreview = document.getElementById('planImportPreview');
+      const elPlanImportError = document.getElementById('planImportError');
+      const elBtnRunPlanImport = document.getElementById('btnRunPlanImport');
+
+      let parsedPlanBatch = null;
+
+      function slugifyPlanId(s) {
+        const map = { 'ą':'a','č':'c','ę':'e','ė':'e','į':'i','š':'s','ų':'u','ū':'u','ž':'z' };
+        return String(s || '')
+          .trim()
+          .toLowerCase()
+          .replace(/[ąčęėįšųūž]/g, ch => map[ch] || ch)
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
+
+      function parseExcelCellDate(val) {
+        if (val == null || val === '') return null;
+        if (val instanceof Date && !isNaN(val.getTime())) {
+          return toISODate(new Date(val.getFullYear(), val.getMonth(), val.getDate()));
+        }
+        if (typeof val === 'number' && val > 20000 && val < 80000 && window.XLSX && window.XLSX.SSF) {
+          const parsed = window.XLSX.SSF.parse_date_code(val);
+          if (parsed && parsed.y && parsed.m && parsed.d) {
+            return toISODate(new Date(parsed.y, parsed.m - 1, parsed.d));
+          }
+        }
+        const str = String(val).trim();
+        if (isValidISODate(str)) return str;
+        const isoMatch = str.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (isoMatch && isValidISODate(isoMatch[1])) return isoMatch[1];
+        const ltMatch = str.match(/^(\d{4})[./](\d{1,2})[./](\d{1,2})$/);
+        if (ltMatch) {
+          const cand = `${ltMatch[1]}-${ltMatch[2].padStart(2, '0')}-${ltMatch[3].padStart(2, '0')}`;
+          if (isValidISODate(cand)) return cand;
+        }
+        const euMatch = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+        if (euMatch) {
+          const cand = `${euMatch[3]}-${euMatch[2].padStart(2, '0')}-${euMatch[1].padStart(2, '0')}`;
+          if (isValidISODate(cand)) return cand;
+        }
+        return null;
+      }
+
+      function parseTimeRangeAndDuration(rawTime) {
+        const str = String(rawTime || '').trim();
+        if (!str) return { startTime: '09:00', duration: 30 };
+        const parts = str.split(/\s*[-–—]\s*/);
+        const startNorm = normalize24Time(parts[0]) || '09:00';
+        let duration = 30;
+        if (parts.length >= 2) {
+          const endNorm = normalize24Time(parts[1]);
+          if (endNorm) {
+            const diff = timeToMins(endNorm) - timeToMins(startNorm);
+            if (diff > 0 && diff <= 480) duration = diff;
+          }
+        }
+        return { startTime: startNorm, duration };
+      }
+
+      function inferPlanStatus(dateStr, planText) {
+        const lowerPlan = String(planText || '').toLowerCase();
+        const cancelWords = ['nebus', 'pradės lankyti', 'atšauk', 'neatėj', 'nevyko'];
+        if (cancelWords.some(w => lowerPlan.includes(w))) return 'atsaukta';
+        const todayStr = toISODate(new Date());
+        return dateStr <= todayStr ? 'ivyko' : 'suplanuota';
+      }
+
+      function normalizeRowKeys(row) {
+        const out = {};
+        Object.keys(row || {}).forEach(k => {
+          out[String(k).trim().toLowerCase()] = row[k];
+        });
+        return out;
+      }
+
+      function parsePlanRows(rawRows) {
+        const clientsMap = new Map();
+        const sessions = [];
+        const counts = { ivyko: 0, suplanuota: 0, atsaukta: 0 };
+        const todayStr = toISODate(new Date());
+
+        rawRows.forEach((rawRow, idx) => {
+          const r = normalizeRowKeys(rawRow);
+          const dateVal = parseExcelCellDate(r['data'] ?? r['date']);
+          const childVal = String(r['vaikas'] ?? r['klientas'] ?? r['mokinys'] ?? r['client'] ?? '').trim();
+          if (!dateVal || !childVal) return;
+
+          const timeRaw = r['laikas'] ?? r['time'] ?? '09:00';
+          const { startTime, duration } = parseTimeRangeAndDuration(timeRaw);
+
+          const rawPlan = r['planas'] ?? r['tema'] ?? r['topic'] ?? '';
+          const planStr = rawPlan == null ? '' : String(rawPlan).trim();
+          const rawNotes = r['pastabos'] ?? r['pastaba'] ?? r['notes'] ?? '';
+          const notesStr = rawNotes == null ? '' : String(rawNotes).trim();
+
+          const topic = planStr || 'Užsiėmimas';
+          const status = inferPlanStatus(dateVal, planStr);
+          counts[status] = (counts[status] || 0) + 1;
+
+          const childKey = childVal.toLowerCase();
+          if (!clientsMap.has(childKey)) {
+            clientsMap.set(childKey, {
+              id: `c-excel-${slugifyPlanId(childVal) || idx}`,
+              name: childVal,
+              phone: '',
+              email: '',
+              level: '',
+              status: 'aktyvus',
+              description: '',
+              createdAt: todayStr,
+              attachments: [],
+              tasks: []
+            });
+          }
+
+          const slotKey = `${dateVal}-${startTime.replace(':', '')}-${slugifyPlanId(childVal)}`;
+          sessions.push({
+            id: `excel-${slotKey}-${idx}`,
+            _slotKey: slotKey,
+            client: childVal,
+            topic,
+            date: dateVal,
+            startTime,
+            duration,
+            status,
+            notes: notesStr,
+            attachments: []
+          });
+        });
+
+        return {
+          clients: Array.from(clientsMap.values()),
+          sessions,
+          counts
+        };
+      }
+
+      document.getElementById('btnOpenPlanImportModal').addEventListener('click', () => {
+        parsedPlanBatch = null;
+        elPlanImportForm.reset();
+        elPlanImportPreview.style.display = 'none';
+        elPlanImportError.style.display = 'none';
+        elBtnRunPlanImport.disabled = true;
+        elPlanImportModal.classList.add('open');
+      });
+
+      elPlanImportFile.addEventListener('change', async () => {
+        parsedPlanBatch = null;
+        elPlanImportPreview.style.display = 'none';
+        elPlanImportError.style.display = 'none';
+        elBtnRunPlanImport.disabled = true;
+
+        const file = elPlanImportFile.files && elPlanImportFile.files[0];
+        if (!file) return;
+
+        if (!window.XLSX) {
+          elPlanImportError.textContent = 'Nepavyko užkrauti Excel apdorojimo bibliotekos. Patikrinkite interneto ryšį ir perkraukite puslapį.';
+          elPlanImportError.style.display = 'block';
+          return;
+        }
+
+        try {
+          const buf = await file.arrayBuffer();
+          const wb = window.XLSX.read(buf, { type: 'array', cellDates: true });
+          const firstSheetName = wb.SheetNames[0];
+          const sheet = wb.Sheets[firstSheetName];
+          const rawRows = window.XLSX.utils.sheet_to_json(sheet, { defval: '' });
+          const batch = parsePlanRows(rawRows);
+
+          if (batch.sessions.length === 0) {
+            elPlanImportError.textContent = 'Faile nerasta tinkamų eilučių su stulpeliais „Data“ ir „Vaikas“. Patikrinkite failo stulpelių pavadinimus.';
+            elPlanImportError.style.display = 'block';
+            return;
+          }
+
+          parsedPlanBatch = batch;
+          const minDate = batch.sessions.reduce((m, s) => s.date < m ? s.date : m, batch.sessions[0].date);
+          const maxDate = batch.sessions.reduce((m, s) => s.date > m ? s.date : m, batch.sessions[0].date);
+
+          elPlanImportPreview.innerHTML = `
+            <strong>Paruošta importavimui (lapas „${escapeHtml(firstSheetName)}“):</strong><br/>
+            • Vaikų / klientų: <strong>${batch.clients.length}</strong> (${escapeHtml(batch.clients.map(c => c.name).join(', '))})<br/>
+            • Užsiėmimų: <strong>${batch.sessions.length}</strong> (${minDate} – ${maxDate})<br/>
+            • Būsenos: <strong>${batch.counts.ivyko}</strong> įvyko · <strong>${batch.counts.suplanuota}</strong> suplanuota · <strong>${batch.counts.atsaukta}</strong> atšaukta
+          `;
+          elPlanImportPreview.style.display = 'block';
+          elBtnRunPlanImport.disabled = false;
+        } catch (err) {
+          console.error('Plan import parse error:', err);
+          elPlanImportError.textContent = 'Nepavyko perskaityti failo. Įsitikinkite, kad tai tvarkingas .xlsx, .xls arba .csv failas.';
+          elPlanImportError.style.display = 'block';
+        }
+      });
+
+      elPlanImportForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!parsedPlanBatch || parsedPlanBatch.sessions.length === 0) return;
+
+        elBtnRunPlanImport.disabled = true;
+        elBtnRunPlanImport.textContent = 'Importuojama...';
+
+        try {
+          const mode = elPlanImportMode.value;
+          if (!Array.isArray(state.clients)) state.clients = [];
+          if (!Array.isArray(state.sessions)) state.sessions = [];
+
+          let addedClients = 0;
+          parsedPlanBatch.clients.forEach(nc => {
+            const exists = state.clients.some(c => c.name.trim().toLowerCase() === nc.name.trim().toLowerCase());
+            if (!exists) {
+              state.clients.push(nc);
+              addedClients++;
+            }
+          });
+
+          let addedSessions = 0;
+          let updatedSessions = 0;
+
+          parsedPlanBatch.sessions.forEach(ns => {
+            const cleanRecord = {
+              id: ns.id,
+              client: ns.client,
+              topic: ns.topic,
+              date: ns.date,
+              startTime: ns.startTime,
+              duration: ns.duration,
+              status: ns.status,
+              notes: ns.notes,
+              attachments: []
+            };
+
+            const existingIdx = state.sessions.findIndex(ex =>
+              ex.id === ns.id ||
+              (ex.date === ns.date && ex.startTime === ns.startTime && ex.client.trim().toLowerCase() === ns.client.trim().toLowerCase())
+            );
+
+            if (existingIdx === -1) {
+              state.sessions.push(cleanRecord);
+              addedSessions++;
+            } else if (mode === 'update_existing') {
+              const prev = state.sessions[existingIdx];
+              state.sessions[existingIdx] = {
+                ...prev,
+                topic: cleanRecord.topic,
+                duration: cleanRecord.duration,
+                status: cleanRecord.status,
+                notes: cleanRecord.notes
+              };
+              updatedSessions++;
+            }
+          });
+
+          if (state.clients.length > 0 && !state.clients.some(c => c.id === selectedClientId)) {
+            selectedClientId = state.clients[0].id;
+          }
+
+          closeModal('planImportModal');
+          renderAll();
+          await saveState();
+          showToast(`Importuota: +${addedSessions} užsiėm. (atnaujinta: ${updatedSessions}, naujų vaikų: ${addedClients})`);
+        } catch (err) {
+          console.error('Plan import apply error:', err);
+          showToast('Klaida importuojant planavimą');
+        } finally {
+          elBtnRunPlanImport.disabled = false;
+          elBtnRunPlanImport.textContent = 'Importuoti į kalendorių';
+        }
       });
 
       // Paleidimas
