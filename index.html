@@ -944,9 +944,40 @@
     .plan-table tbody tr.plan-row:hover {
       background: #f8fafc;
     }
-    .plan-table tbody tr.plan-row.st-atsaukta td:not(:last-child) {
+    .plan-table tbody tr.plan-row.st-atsaukta td.plan-strike-cell {
       text-decoration: line-through;
       opacity: 0.78;
+    }
+
+    .plan-editable-cell {
+      cursor: text;
+      border-radius: 5px;
+      padding: 6px 8px !important;
+      transition: background 0.12s ease, box-shadow 0.12s ease;
+      min-width: 140px;
+    }
+    .plan-editable-cell:hover {
+      background: #f1f5f9;
+    }
+    .plan-editable-cell.plan-cell-active {
+      background: #eff6ff !important;
+      box-shadow: inset 0 0 0 2px var(--primary);
+      text-decoration: none !important;
+      opacity: 1 !important;
+    }
+    .plan-inline-input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      padding: 0;
+      margin: 0;
+      line-height: 1.4;
+      resize: none;
+      display: block;
     }
 
     /* DEŠINĖS PUSĖS SKYDAS */
@@ -2089,11 +2120,11 @@
                 <span class="period-title" id="periodTitle"></span>
               </div>
               <div class="view-group">
-                <button class="btn view-btn" data-view="day">Diena</button>
                 <label class="plan-mode-toggle" title="Perjungti į planavimo lentelės vaizdą (Diena / Savaitė / Mėnuo)">
                   <input type="checkbox" id="planModeCheckbox" />
                   <span>Planavimas</span>
                 </label>
+                <button class="btn view-btn" data-view="day">Diena</button>
                 <button class="btn view-btn" data-view="week">Savaitė</button>
                 <button class="btn view-btn active" data-view="month">Mėnuo</button>
               </div>
@@ -2699,6 +2730,7 @@
       let expandedStatsClients = new Set();
       let currentView = 'month';
       let planViewMode = false;
+      let planSortBy = 'date'; // 'date' | 'name'
       let showExtraHoursInViews = false;
       const EXTRA_HOURS_PREF_KEY = 'lt_kalendorius_show_extra_hours';
       try {
@@ -3918,6 +3950,32 @@
         renderSidebar();
       }
 
+      let activePlanCellCoord = null; // { rowIdx, field: 'topic' | 'notes' }
+      let planSaveTimer = null;
+
+      function schedulePlanAutosave() {
+        clearTimeout(planSaveTimer);
+        planSaveTimer = setTimeout(() => {
+          saveState(true);
+        }, 450);
+      }
+
+      function sortPlanSessions(list) {
+        const copy = [...list];
+        if (planSortBy === 'name') {
+          return copy.sort((a, b) =>
+            (a.client || '').localeCompare(b.client || '', 'lt') ||
+            (a.date || '').localeCompare(b.date || '') ||
+            (a.startTime || '').localeCompare(b.startTime || '')
+          );
+        }
+        return copy.sort((a, b) =>
+          (a.date || '').localeCompare(b.date || '') ||
+          (a.startTime || '').localeCompare(b.startTime || '') ||
+          (a.client || '').localeCompare(b.client || '', 'lt')
+        );
+      }
+
       function renderPlanningTableView() {
         const filtered = getFilteredSessions();
         let sessions = [];
@@ -3925,37 +3983,48 @@
 
         if (currentView === 'day') {
           const dStr = toISODate(selectedDate);
-          sessions = getSessionsByDate(dStr, filtered);
+          sessions = sortPlanSessions(getSessionsByDate(dStr, filtered));
           scopeNote = `Dienos (${dStr}) planavimas`;
         } else if (currentView === 'week') {
           const mon = getMonday(selectedDate);
           const sun = addDays(mon, 6);
           const monStr = toISODate(mon);
           const sunStr = toISODate(sun);
-          sessions = filtered
-            .filter(s => s.date >= monStr && s.date <= sunStr)
-            .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+          sessions = sortPlanSessions(filtered.filter(s => s.date >= monStr && s.date <= sunStr));
           scopeNote = `Savaitės (${monStr} – ${sunStr}) planavimas`;
         } else {
           const prefix = toMonthPrefix(selectedDate);
-          sessions = filtered
-            .filter(s => s.date && s.date.startsWith(prefix))
-            .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+          sessions = sortPlanSessions(filtered.filter(s => s.date && s.date.startsWith(prefix)));
           scopeNote = `${formatMonthLabel(prefix)} planavimas`;
         }
 
         const showDateCol = currentView === 'week' || currentView === 'month';
+        const sortLabel = planSortBy === 'name' ? '↕ Rūšiuoti: Vardas' : '↕ Rūšiuoti: Data';
+        const sortTitle = planSortBy === 'name'
+          ? 'Dabar rūšiuojama pagal vardą – spustelėkite, kad rūšiuotų pagal datą'
+          : 'Dabar rūšiuojama pagal datą – spustelėkite, kad rūšiuotų pagal vardą';
 
         let html = `
           <div class="day-occupancy-banner">
-            <div><strong>${escapeHtml(scopeNote)}:</strong> iš viso įrašų – <strong>${sessions.length}</strong></div>
-            <button class="btn btn-primary btn-sm" id="btnPlanAddSession">+ Pridėti įrašą</button>
+            <div>
+              <strong>${escapeHtml(scopeNote)}:</strong> iš viso įrašų – <strong>${sessions.length}</strong>
+              <span style="font-size:12px; color:var(--muted); margin-left:8px;">Spustelėkite Temą arba Pastabas – rašykite, rodyklėmis ↑ ↓ ← → judėkite, Enter arba paspaudimas šone išeina</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="btn btn-sm" id="btnTogglePlanSort" title="${escapeHtml(sortTitle)}">${escapeHtml(sortLabel)}</button>
+              <button class="btn btn-primary btn-sm" id="btnPlanAddSession">+ Pridėti įrašą</button>
+            </div>
           </div>
         `;
 
         if (sessions.length === 0) {
+          activePlanCellCoord = null;
           html += `<div class="empty-state">Šiam pasirinktam laikotarpiui ir filtrams įrašų nėra.</div>`;
           elCalendarBody.innerHTML = html;
+          document.getElementById('btnTogglePlanSort').addEventListener('click', () => {
+            planSortBy = planSortBy === 'date' ? 'name' : 'date';
+            renderPlanningTableView();
+          });
           document.getElementById('btnPlanAddSession').addEventListener('click', () => {
             openSessionModal(null, toISODate(selectedDate), '09:00');
           });
@@ -3963,8 +4032,8 @@
         }
 
         html += `
-          <div class="plan-table-wrap">
-            <table class="plan-table">
+          <div class="plan-table-wrap" id="planTableWrap">
+            <table class="plan-table" id="planTable">
               <thead>
                 <tr>
                   ${showDateCol ? '<th>Data</th>' : ''}
@@ -3976,19 +4045,19 @@
                 </tr>
               </thead>
               <tbody>
-                ${sessions.map(s => {
+                ${sessions.map((s, rIdx) => {
                   const end = minsToTime(timeToMins(s.startTime) + Number(s.duration || 30));
                   const timeStr = `${s.startTime}–${end}`;
                   const pillClass = s.status === 'ivyko'
                     ? 'badge-green'
                     : (s.status === 'atsaukta' ? 'badge-red' : 'badge-blue');
                   return `
-                    <tr class="plan-row st-${s.status}" data-plan-session-id="${escapeHtml(s.id)}">
-                      ${showDateCol ? `<td><strong>${escapeHtml(s.date)}</strong></td>` : ''}
-                      <td style="white-space:nowrap;"><strong>${escapeHtml(timeStr)}</strong></td>
-                      <td><strong>${escapeHtml(s.client)}</strong></td>
-                      <td>${escapeHtml(s.topic || '—')}</td>
-                      <td style="color:var(--muted);">${escapeHtml(s.notes || '—')}</td>
+                    <tr class="plan-row st-${s.status}" data-row-idx="${rIdx}" data-session-id="${escapeHtml(s.id)}">
+                      ${showDateCol ? `<td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(s.date)}</strong></td>` : ''}
+                      <td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(timeStr)}</strong></td>
+                      <td class="plan-strike-cell" style="white-space:nowrap;"><strong>${escapeHtml(s.client)}</strong></td>
+                      <td class="plan-editable-cell plan-strike-cell" data-row-idx="${rIdx}" data-field="topic" data-session-id="${escapeHtml(s.id)}">${escapeHtml(s.topic || '')}</td>
+                      <td class="plan-editable-cell plan-strike-cell" data-row-idx="${rIdx}" data-field="notes" data-session-id="${escapeHtml(s.id)}" style="color:var(--muted);">${escapeHtml(s.notes || '')}</td>
                       <td style="text-align:right; white-space:nowrap;">
                         <span class="badge ${pillClass}">${escapeHtml(STATUS_LABELS[s.status] || s.status)}</span>
                       </td>
@@ -4002,16 +4071,151 @@
 
         elCalendarBody.innerHTML = html;
 
+        document.getElementById('btnTogglePlanSort').addEventListener('click', () => {
+          planSortBy = planSortBy === 'date' ? 'name' : 'date';
+          renderPlanningTableView();
+        });
+
         document.getElementById('btnPlanAddSession').addEventListener('click', () => {
           openSessionModal(null, toISODate(selectedDate), '09:00');
         });
 
-        elCalendarBody.querySelectorAll('[data-plan-session-id]').forEach(row => {
-          row.addEventListener('click', () => openSessionModal(row.dataset.planSessionId));
+        const rowCount = sessions.length;
+
+        function commitAndExitCell(tdEl, saveNow = false) {
+          if (!tdEl) return;
+          const inp = tdEl.querySelector('.plan-inline-input');
+          if (!inp) return;
+          const sessionId = tdEl.dataset.sessionId;
+          const field = tdEl.dataset.field;
+          const newVal = inp.value;
+          const sObj = state.sessions.find(x => x.id === sessionId);
+          if (sObj && field) {
+            sObj[field] = field === 'topic' ? (newVal.trim() || 'Užsiėmimas') : newVal;
+            schedulePlanAutosave();
+            if (saveNow) {
+              clearTimeout(planSaveTimer);
+              saveState(true);
+            }
+          }
+          tdEl.classList.remove('plan-cell-active');
+          tdEl.textContent = sObj ? (sObj[field] || '') : newVal;
+        }
+
+        function exitAllPlanEditing(saveNow = false) {
+          elCalendarBody.querySelectorAll('.plan-editable-cell.plan-cell-active').forEach(td => {
+            commitAndExitCell(td, saveNow);
+          });
+          activePlanCellCoord = null;
+        }
+
+        function activatePlanCell(rIdx, field, placeCursorEnd = true) {
+          if (rIdx < 0 || rIdx >= rowCount) return;
+          const prevActive = elCalendarBody.querySelector('.plan-editable-cell.plan-cell-active');
+          if (prevActive) {
+            const prevR = Number(prevActive.dataset.rowIdx);
+            const prevF = prevActive.dataset.field;
+            if (prevR === rIdx && prevF === field && prevActive.querySelector('.plan-inline-input')) {
+              return;
+            }
+            commitAndExitCell(prevActive, false);
+          }
+
+          const targetTd = elCalendarBody.querySelector(`.plan-editable-cell[data-row-idx="${rIdx}"][data-field="${field}"]`);
+          if (!targetTd) return;
+
+          const sessionId = targetTd.dataset.sessionId;
+          const sObj = state.sessions.find(x => x.id === sessionId);
+          const curVal = sObj ? (sObj[field] || '') : (targetTd.textContent || '');
+
+          activePlanCellCoord = { rowIdx: rIdx, field };
+          targetTd.classList.add('plan-cell-active');
+          targetTd.innerHTML = `<input type="text" class="plan-inline-input" value="${escapeHtml(curVal)}" />`;
+
+          const inp = targetTd.querySelector('.plan-inline-input');
+          inp.focus();
+          if (placeCursorEnd) {
+            const len = inp.value.length;
+            inp.setSelectionRange(len, len);
+          }
+
+          inp.addEventListener('input', () => {
+            if (sObj && field) {
+              sObj[field] = inp.value;
+              schedulePlanAutosave();
+            }
+          });
+
+          inp.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitAndExitCell(targetTd, true);
+              activePlanCellCoord = null;
+              return;
+            }
+            if (e.key === 'ArrowDown') {
+              if (rIdx + 1 < rowCount) {
+                e.preventDefault();
+                activatePlanCell(rIdx + 1, field, true);
+              }
+              return;
+            }
+            if (e.key === 'ArrowUp') {
+              if (rIdx - 1 >= 0) {
+                e.preventDefault();
+                activatePlanCell(rIdx - 1, field, true);
+              }
+              return;
+            }
+            if (e.key === 'ArrowLeft') {
+              const atStart = inp.selectionStart === 0 && inp.selectionEnd === 0;
+              if (atStart && field === 'notes') {
+                e.preventDefault();
+                activatePlanCell(rIdx, 'topic', true);
+              }
+              return;
+            }
+            if (e.key === 'ArrowRight') {
+              const atEnd = inp.selectionStart === inp.value.length && inp.selectionEnd === inp.value.length;
+              if (atEnd && field === 'topic') {
+                e.preventDefault();
+                activatePlanCell(rIdx, 'notes', false);
+              }
+              return;
+            }
+          });
+        }
+
+        elCalendarBody.querySelectorAll('.plan-editable-cell').forEach(td => {
+          td.addEventListener('click', e => {
+            e.stopPropagation();
+            const rIdx = Number(td.dataset.rowIdx);
+            const field = td.dataset.field;
+            activatePlanCell(rIdx, field, true);
+          });
         });
+
+        // Spustelėjus ant neaktyvios zonos (už redaguojamo langelio), išeiname iš redagavimo
+        if (!window._planOutsideClickBound) {
+          window._planOutsideClickBound = true;
+          document.addEventListener('mousedown', e => {
+            if (!planViewMode || activePage !== 'calendar') return;
+            const activeInp = document.querySelector('#calendarBody .plan-inline-input');
+            if (!activeInp) return;
+            const activeTd = activeInp.closest('.plan-editable-cell');
+            if (activeTd && !activeTd.contains(e.target)) {
+              commitAndExitCell(activeTd, true);
+              activePlanCellCoord = null;
+            }
+          });
+        }
+
+        if (activePlanCellCoord && activePlanCellCoord.rowIdx < rowCount) {
+          activatePlanCell(activePlanCellCoord.rowIdx, activePlanCellCoord.field, true);
+        }
       }
 
-      function updateHeaderTitle() {
+            function updateHeaderTitle() {
         if (currentView === 'month') {
           const ym = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
           elPeriodTitle.textContent = `${ym} (${MONTHS_NOM[selectedDate.getMonth()]})`;
