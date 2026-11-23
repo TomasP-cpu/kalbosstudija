@@ -1104,6 +1104,131 @@
       background: #f1f5f9;
     }
 
+    .stats-table tbody tr.inactive-client-row {
+      background: #f8fafc;
+      color: #64748b;
+    }
+    .stats-table tbody tr.inactive-client-row:hover {
+      background: #f1f5f9;
+    }
+    .stats-table tbody tr.inactive-client-row .client-expand-cell {
+      color: #475569;
+    }
+    .stats-table tbody tr.inactive-client-row .expand-chevron {
+      background: #cbd5e1;
+      color: #334155;
+    }
+    .stats-table tbody tr.expanded-parent-row.inactive-client-row .expand-chevron {
+      background: #475569;
+      color: #fff;
+    }
+
+    /* Mini kalendorius kelių dienų žymėjimui kopijuojant */
+    .copy-cal-box {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .copy-cal-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .copy-cal-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .copy-cal-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .copy-cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .copy-cal-day {
+      min-height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: #fff;
+      padding: 3px 4px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 1px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      transition: all 0.12s ease;
+    }
+    .copy-cal-day:hover:not(.disabled) {
+      border-color: var(--primary);
+      background: #eff6ff;
+    }
+    .copy-cal-day.other-month {
+      opacity: 0.45;
+      background: #f8fafc;
+    }
+    .copy-cal-day.weekend-day {
+      background-color: #f8fafc;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(148, 163, 184, 0.04) 0px,
+        rgba(148, 163, 184, 0.04) 4px,
+        rgba(148, 163, 184, 0.18) 4px,
+        rgba(148, 163, 184, 0.18) 8px
+      );
+    }
+    .copy-cal-day.holiday-day {
+      background-color: #fffbeb;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(245, 158, 11, 0.05) 0px,
+        rgba(245, 158, 11, 0.05) 4px,
+        rgba(245, 158, 11, 0.18) 4px,
+        rgba(245, 158, 11, 0.18) 8px
+      );
+      border-color: #fcd34d;
+    }
+    .copy-cal-day.source-day {
+      border-color: #0284c7;
+      box-shadow: inset 0 0 0 1px #0284c7;
+    }
+    .copy-cal-day.picked-day {
+      background: var(--primary) !important;
+      background-image: none !important;
+      color: #fff !important;
+      border-color: var(--primary) !important;
+    }
+    .copy-cal-day .h-dot {
+      font-size: 9px;
+      line-height: 1;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #92400e;
+      font-weight: 700;
+    }
+    .copy-cal-day.picked-day .h-dot {
+      color: #dbeafe;
+    }
+
     .client-expand-cell {
       display: inline-flex;
       align-items: center;
@@ -1912,7 +2037,17 @@
                 <button class="btn" id="btnStatsNextMonth" title="Kitas mėnuo">→</button>
                 <span class="period-title" id="statsPeriodTitle"></span>
               </div>
-              <div class="view-group">
+              <div class="view-group" style="gap:10px; flex-wrap:wrap;">
+                <div style="display:inline-flex; align-items:center; gap:10px; font-size:13px; background:#f8fafc; border:1px solid var(--border); padding:6px 10px; border-radius:8px;">
+                  <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; font-weight:600;">
+                    <input type="checkbox" id="statsFilterActive" checked />
+                    <span>Aktyvūs</span>
+                  </label>
+                  <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; font-weight:600; color:#475569;">
+                    <input type="checkbox" id="statsFilterInactive" checked />
+                    <span>Neaktyvūs</span>
+                  </label>
+                </div>
                 <select class="select-input" id="statsClientFilter">
                   <option value="all">Visi klientai</option>
                 </select>
@@ -2294,13 +2429,31 @@
           <div id="copySourcePreview" style="padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px solid var(--border); font-size:12.5px; line-height:1.45;"></div>
 
           <div class="form-group">
-            <label class="form-label" for="copyTargetDatesText">Tikslinės dienos (viena ar kelios datos, MMMM-MM-DD) *</label>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <input type="text" id="copyTargetDatesText" class="form-input" required placeholder="Pvz., 2026-12-01, 2026-12-03" />
-              <button type="button" class="btn btn-sm" id="btnAddTargetDatePicker" title="Pridėti datą per kalendorių">+ Data</button>
-              <input type="date" id="copyTargetDateProxy" style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;" tabindex="-1" />
+            <label class="form-label">Pažymėkite kelias tikslines dienas kalendoriuje *</label>
+            <div class="copy-cal-box">
+              <div class="copy-cal-top">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <button type="button" class="btn btn-sm" id="btnCopyCalPrev" title="Ankstesnis mėnuo">←</button>
+                  <span class="copy-cal-title" id="copyCalMonthTitle"></span>
+                  <button type="button" class="btn btn-sm" id="btnCopyCalNext" title="Kitas mėnuo">→</button>
+                </div>
+                <button type="button" class="btn btn-sm" id="btnClearCopyPickedDates" title="Išvalyti pažymėtas dienas">Išvalyti žymėjimą</button>
+              </div>
+              <div class="copy-cal-weekdays">
+                <div>Pr</div><div>An</div><div>Tr</div><div>Kt</div><div>Pn</div><div>Št</div><div>Sk</div>
+              </div>
+              <div class="copy-cal-grid" id="copyCalGrid"></div>
+              <div class="cal-legend" style="font-size:11px;">
+                <span class="legend-item"><span class="legend-swatch weekend"></span> Savaitgalis</span>
+                <span class="legend-item"><span class="legend-swatch holiday"></span> LT šventė / nedarbo diena</span>
+                <span class="legend-item"><span style="width:14px; height:12px; border-radius:3px; background:var(--primary); display:inline-block;"></span> Pažymėta</span>
+              </div>
             </div>
-            <span style="font-size:11.5px; color:var(--muted);">Kelias datas atskirkite kableliu, kabliataškiu arba nauja eilute.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="copyTargetDatesText">Pažymėtos datos (MMMM-MM-DD) *</label>
+            <input type="text" id="copyTargetDatesText" class="form-input" required placeholder="Spustelėkite dienas kalendoriuje arba įrašykite MMMM-MM-DD" />
           </div>
 
           <div id="copyTargetChips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
@@ -2411,6 +2564,9 @@
       let selectedDate = startOfDay(new Date());
       let statsMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       let statsClientFilter = 'all';
+      let statsShowActive = true;
+      let statsShowInactive = true;
+      let copyCalMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       let expandedStatsClients = new Set();
       let currentView = 'month';
       let sidebarTab = 'schedule';
@@ -4029,10 +4185,18 @@
 
         const allClientMap = new Map();
 
+        const passesStatusFilter = (clientObj) => {
+          const inactive = clientObj ? isClientInactive(clientObj.status) : false;
+          if (inactive && !statsShowInactive) return false;
+          if (!inactive && !statsShowActive) return false;
+          return true;
+        };
+
         state.clients.forEach(c => {
           const cleanName = c.name.trim();
           const normKey = cleanName.toLowerCase();
           if (statsClientFilter !== 'all' && normKey !== statsClientFilter.toLowerCase()) return;
+          if (!passesStatusFilter(c)) return;
           if (!allClientMap.has(normKey)) {
             allClientMap.set(normKey, {
               key: normKey,
@@ -4053,6 +4217,8 @@
           const cleanName = s.client.trim();
           const normKey = cleanName.toLowerCase();
           if (statsClientFilter !== 'all' && normKey !== statsClientFilter.toLowerCase()) return;
+          const linkedClient = state.clients.find(c => c.name.toLowerCase() === normKey);
+          if (!passesStatusFilter(linkedClient)) return;
 
           if (!allClientMap.has(normKey)) {
             const linked = state.clients.find(c => c.name.toLowerCase() === normKey);
@@ -4145,17 +4311,23 @@
                   const isExpanded = expandedStatsClients.has(r.key);
                   const monthList = Array.from(r.months.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
 
+                  const linkedC = state.clients.find(c => c.name.trim().toLowerCase() === r.key);
+                  const isInactRow = linkedC ? isClientInactive(linkedC.status) : false;
+                  const upcomingBadgeClass = isInactRow ? '' : 'badge-blue';
+                  const upcomingBadgeStyle = isInactRow ? 'background:#e2e8f0; color:#475569;' : '';
+
                   let rowHtml = `
-                    <tr class="clickable-row ${isExpanded ? 'expanded-parent-row' : ''}" data-toggle-client-stats="${escapeHtml(r.key)}">
+                    <tr class="clickable-row ${isExpanded ? 'expanded-parent-row' : ''} ${isInactRow ? 'inactive-client-row' : ''}" data-toggle-client-stats="${escapeHtml(r.key)}">
                       <td>
                         <span class="client-expand-cell">
                           <span class="expand-chevron">▶</span>
                           <span>${escapeHtml(r.name)}</span>
+                          ${isInactRow ? `<span class="badge" style="background:#e2e8f0; color:#475569;">Neaktyvus</span>` : ''}
                         </span>
                       </td>
                       <td><strong>${r.total}</strong></td>
                       <td><span class="badge badge-green">${r.completed}</span></td>
-                      <td><span class="badge badge-blue">${r.upcoming}</span></td>
+                      <td><span class="badge ${upcomingBadgeClass}" style="${upcomingBadgeStyle}">${r.upcoming}</span></td>
                       <td>${r.cancelled > 0 ? `<span class="badge badge-red">${r.cancelled}</span>` : '0'}</td>
                       <td>${formatDuration(r.completedMins)} / ${formatDuration(r.activeMins)}</td>
                       <td>
@@ -5051,6 +5223,19 @@
         renderStatsPage();
       });
 
+      const elStatsFilterActive = document.getElementById('statsFilterActive');
+      const elStatsFilterInactive = document.getElementById('statsFilterInactive');
+
+      elStatsFilterActive.addEventListener('change', e => {
+        statsShowActive = e.target.checked;
+        renderStatsPage();
+      });
+
+      elStatsFilterInactive.addEventListener('change', e => {
+        statsShowInactive = e.target.checked;
+        renderStatsPage();
+      });
+
       elStatsClientFilter.addEventListener('change', e => {
         statsClientFilter = e.target.value;
         renderStatsPage();
@@ -5480,10 +5665,11 @@
       const elCopySourceDate = document.getElementById('copySourceDate');
       const elCopySourcePreview = document.getElementById('copySourcePreview');
       const elCopyTargetDatesText = document.getElementById('copyTargetDatesText');
-      const elCopyTargetDateProxy = document.getElementById('copyTargetDateProxy');
       const elCopyTargetChips = document.getElementById('copyTargetChips');
       const elCopyTargetStatus = document.getElementById('copyTargetStatus');
       const elCopyDayError = document.getElementById('copyDayError');
+      const elCopyCalMonthTitle = document.getElementById('copyCalMonthTitle');
+      const elCopyCalGrid = document.getElementById('copyCalGrid');
 
       function getSourceSessionsForCopy(dateStr) {
         if (!isValidISODate(dateStr)) return [];
@@ -5529,18 +5715,78 @@
         return { validDates: unique, invalidTokens: tokens.filter(t => !isValidISODate(t)) };
       }
 
+      function renderCopyCalendar() {
+        const y = copyCalMonthDate.getFullYear();
+        const m = copyCalMonthDate.getMonth();
+        elCopyCalMonthTitle.textContent = `${y}-${String(m + 1).padStart(2, '0')} (${MONTHS_NOM[m]})`;
+
+        const firstDay = new Date(y, m, 1);
+        const startGrid = getMonday(firstDay);
+        const { validDates } = parseTargetDatesList(elCopyTargetDatesText.value);
+        const pickedSet = new Set(validDates);
+        const srcIso = elCopySourceDate.value.trim();
+
+        let html = '';
+        for (let i = 0; i < 42; i++) {
+          const d = addDays(startGrid, i);
+          const dStr = toISODate(d);
+          const isOther = d.getMonth() !== m;
+          const dayInfo = getHolidayInfo(d);
+          const isPicked = pickedSet.has(dStr);
+          const isSrc = srcIso && dStr === srcIso;
+
+          const cls = ['copy-cal-day'];
+          if (isOther) cls.push('other-month');
+          if (dayInfo.isWeekend) cls.push('weekend-day');
+          if (dayInfo.isHoliday) cls.push('holiday-day');
+          if (isSrc) cls.push('source-day');
+          if (isPicked) cls.push('picked-day');
+
+          const tip = dayInfo.holidayName ? `${dStr} – ${dayInfo.holidayName}` : dStr;
+          const shortH = dayInfo.holidayName ? dayInfo.holidayName.split(' ')[0] : '';
+
+          html += `
+            <button type="button" class="${cls.join(' ')}" data-copy-cal-date="${dStr}" title="${escapeHtml(tip)}">
+              <span>${d.getDate()}</span>
+              ${dayInfo.holidayName ? `<span class="h-dot">🇱🇹 ${escapeHtml(shortH)}</span>` : ''}
+            </button>
+          `;
+        }
+        elCopyCalGrid.innerHTML = html;
+
+        elCopyCalGrid.querySelectorAll('[data-copy-cal-date]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const clickedDate = btn.dataset.copyCalDate;
+            const { validDates: cur } = parseTargetDatesList(elCopyTargetDatesText.value);
+            const idx = cur.indexOf(clickedDate);
+            if (idx === -1) {
+              cur.push(clickedDate);
+            } else {
+              cur.splice(idx, 1);
+            }
+            elCopyTargetDatesText.value = cur.join(', ');
+            renderCopyTargetChips();
+            renderCopyCalendar();
+          });
+        });
+      }
+
       function renderCopyTargetChips() {
         const { validDates } = parseTargetDatesList(elCopyTargetDatesText.value);
         if (validDates.length === 0) {
           elCopyTargetChips.innerHTML = '';
           return;
         }
-        elCopyTargetChips.innerHTML = validDates.map(dt => `
-          <span class="badge badge-blue" style="display:inline-flex; align-items:center; gap:5px; padding:4px 8px; font-size:12px;">
-            <span>📅 ${escapeHtml(dt)}</span>
-            <button type="button" data-remove-target-date="${escapeHtml(dt)}" style="border:none; background:transparent; color:inherit; font-weight:700; cursor:pointer; padding:0 2px;" title="Pašalinti datą">✕</button>
-          </span>
-        `).join('');
+        elCopyTargetChips.innerHTML = validDates.map(dt => {
+          const info = getHolidayInfo(dt);
+          const hNote = info.holidayName ? ` · 🇱🇹 ${info.holidayName}` : '';
+          return `
+            <span class="badge badge-blue" style="display:inline-flex; align-items:center; gap:5px; padding:4px 8px; font-size:12px;" title="${escapeHtml(dt + hNote)}">
+              <span>📅 ${escapeHtml(dt)}${info.holidayName ? ' 🇱🇹' : ''}</span>
+              <button type="button" data-remove-target-date="${escapeHtml(dt)}" style="border:none; background:transparent; color:inherit; font-weight:700; cursor:pointer; padding:0 2px;" title="Pašalinti datą">✕</button>
+            </span>
+          `;
+        }).join('');
 
         elCopyTargetChips.querySelectorAll('[data-remove-target-date]').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -5548,6 +5794,7 @@
             const { validDates: cur } = parseTargetDatesList(elCopyTargetDatesText.value);
             elCopyTargetDatesText.value = cur.filter(d => d !== rem).join(', ');
             renderCopyTargetChips();
+            renderCopyCalendar();
           });
         });
       }
@@ -5558,38 +5805,51 @@
         const srcIso = toISODate(selectedDate);
         elCopySourceDate.value = srcIso;
         syncDateProxy('copySourceDate');
-        const nextIso = toISODate(addDays(selectedDate, 2));
-        elCopyTargetDatesText.value = nextIso;
+        copyCalMonthDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        elCopyTargetDatesText.value = '';
         elCopyTargetStatus.value = 'suplanuota';
         renderCopySourcePreview();
         renderCopyTargetChips();
+        renderCopyCalendar();
         elCopyDayModal.classList.add('open');
-        elCopyTargetDatesText.focus();
       });
 
-      elCopySourceDate.addEventListener('input', renderCopySourcePreview);
-      elCopySourceDate.addEventListener('change', renderCopySourcePreview);
-      elCopyTargetDatesText.addEventListener('input', renderCopyTargetChips);
-
-      document.getElementById('btnAddTargetDatePicker').addEventListener('click', () => {
-        if (typeof elCopyTargetDateProxy.showPicker === 'function') {
-          elCopyTargetDateProxy.showPicker();
-        } else {
-          elCopyTargetDateProxy.style.pointerEvents = 'auto';
-          elCopyTargetDateProxy.focus();
-          elCopyTargetDateProxy.click();
-          elCopyTargetDateProxy.style.pointerEvents = 'none';
-        }
+      document.getElementById('btnCopyCalPrev').addEventListener('click', () => {
+        copyCalMonthDate = new Date(copyCalMonthDate.getFullYear(), copyCalMonthDate.getMonth() - 1, 1);
+        renderCopyCalendar();
       });
 
-      elCopyTargetDateProxy.addEventListener('change', () => {
-        if (!elCopyTargetDateProxy.value) return;
-        const picked = elCopyTargetDateProxy.value;
-        const { validDates } = parseTargetDatesList(elCopyTargetDatesText.value);
-        if (!validDates.includes(picked)) validDates.push(picked);
-        elCopyTargetDatesText.value = validDates.join(', ');
-        elCopyTargetDateProxy.value = '';
+      document.getElementById('btnCopyCalNext').addEventListener('click', () => {
+        copyCalMonthDate = new Date(copyCalMonthDate.getFullYear(), copyCalMonthDate.getMonth() + 1, 1);
+        renderCopyCalendar();
+      });
+
+      document.getElementById('btnClearCopyPickedDates').addEventListener('click', () => {
+        elCopyTargetDatesText.value = '';
         renderCopyTargetChips();
+        renderCopyCalendar();
+      });
+
+      elCopySourceDate.addEventListener('input', () => {
+        renderCopySourcePreview();
+        if (isValidISODate(elCopySourceDate.value.trim())) {
+          const dt = parseISODate(elCopySourceDate.value.trim());
+          copyCalMonthDate = new Date(dt.getFullYear(), dt.getMonth(), 1);
+        }
+        renderCopyCalendar();
+      });
+      elCopySourceDate.addEventListener('change', () => {
+        renderCopySourcePreview();
+        if (isValidISODate(elCopySourceDate.value.trim())) {
+          const dt = parseISODate(elCopySourceDate.value.trim());
+          copyCalMonthDate = new Date(dt.getFullYear(), dt.getMonth(), 1);
+        }
+        renderCopyCalendar();
+      });
+
+      elCopyTargetDatesText.addEventListener('input', () => {
+        renderCopyTargetChips();
+        renderCopyCalendar();
       });
 
       elCopyDayForm.addEventListener('submit', async e => {
@@ -5617,7 +5877,7 @@
           return;
         }
         if (validDates.length === 0) {
-          elCopyDayError.textContent = 'Nurodykite bent vieną tikslinę dieną (MMMM-MM-DD).';
+          elCopyDayError.textContent = 'Kalendoriuje pažymėkite bent vieną tikslinę dieną.';
           elCopyDayError.style.display = 'block';
           return;
         }
@@ -5651,7 +5911,7 @@
         showToast(`Nukopijuota užsiėmimų: ${createdCount} (į ${validDates.length} d.)`);
       });
 
-      // Paleidimas
+            // Paleidimas
       initAuth();
     })();
   </script>
