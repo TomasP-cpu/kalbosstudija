@@ -1847,6 +1847,7 @@
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <button type="button" class="btn btn-danger" id="btnDeleteSession" style="display:none">Ištrinti</button>
             <button type="button" class="btn btn-success" id="btnAssignTaskFromSession">📝 Skirti naują užduotį</button>
+            <button type="button" class="btn" id="btnSwapSessionModal" style="display:none" title="Sukeisti šį užsiėmimą vietomis su kitu tos dienos užsiėmimu">🔀 Sukeisti vietomis</button>
           </div>
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn" data-close="sessionModal">Atšaukti</button>
@@ -2033,6 +2034,36 @@
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn" data-close="planImportModal">Atšaukti</button>
             <button type="submit" class="btn btn-primary" id="btnRunPlanImport" disabled>Importuoti į kalendorių</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODALAS: SUKEISTI UŽSIĖMIMUS VIETOMIS -->
+  <div class="modal-backdrop" id="swapSessionModal">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <span>🔀 Sukeisti užsiėmimus vietomis</span>
+        <button class="btn btn-sm" data-close="swapSessionModal">✕</button>
+      </div>
+      <form id="swapSessionForm">
+        <div class="modal-body">
+          <input type="hidden" id="swapSourceSessionId" />
+          <div id="swapSourceSummary" style="padding:10px 12px; border-radius:8px; background:#eff6ff; border:1px solid #bfdbfe; font-size:13px; line-height:1.45;"></div>
+          <div class="form-group">
+            <label class="form-label" for="swapTargetSelect">Pasirinkite, su kuo sukeisti vietomis (laikais):</label>
+            <select id="swapTargetSelect" class="form-select" required></select>
+          </div>
+          <p style="font-size:12px; color:var(--muted); line-height:1.45;">
+            Sukeičiant vietomis, abiejų užsiėmimų <strong>pradžios laikas</strong> ir <strong>trukmė</strong> apsikeis tarpusavyje, o klientas, tema, pastabos ir prisegti failai liks prie savo užsiėmimo.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <div></div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn" data-close="swapSessionModal">Atšaukti</button>
+            <button type="submit" class="btn btn-primary" id="btnConfirmSwap">🔀 Sukeisti</button>
           </div>
         </div>
       </form>
@@ -4158,6 +4189,7 @@
           elInputNotes.value = s.notes || '';
           draftSessionAttachments = Array.isArray(s.attachments) ? s.attachments.map(a => ({ ...a })) : [];
           elBtnDeleteSession.style.display = 'inline-flex';
+          document.getElementById('btnSwapSessionModal').style.display = 'inline-flex';
         } else {
           elModalTitle.textContent = 'Naujas užsiėmimas';
           elSessionId.value = '';
@@ -4168,6 +4200,7 @@
           elInputStatus.value = 'suplanuota';
           draftSessionAttachments = [];
           elBtnDeleteSession.style.display = 'none';
+          document.getElementById('btnSwapSessionModal').style.display = 'none';
         }
 
         renderSessionAttachmentsList();
@@ -4865,6 +4898,97 @@
           elBtnRunPlanImport.disabled = false;
           elBtnRunPlanImport.textContent = 'Importuoti į kalendorių';
         }
+      });
+
+      // ==================== UŽSIĖMIMŲ SUKEITIMAS VIETOMIS ====================
+      const elSwapSessionModal = document.getElementById('swapSessionModal');
+      const elSwapSessionForm = document.getElementById('swapSessionForm');
+      const elSwapSourceSessionId = document.getElementById('swapSourceSessionId');
+      const elSwapSourceSummary = document.getElementById('swapSourceSummary');
+      const elSwapTargetSelect = document.getElementById('swapTargetSelect');
+
+      document.getElementById('btnSwapSessionModal').addEventListener('click', () => {
+        const sid = elSessionId.value;
+        if (sid) openSwapModal(sid);
+      });
+
+      function openSwapModal(sourceId) {
+        const source = state.sessions.find(s => s.id === sourceId);
+        if (!source) return;
+
+        // Pirmiausia ieškome tos pačios dienos kitų užsiėmimų, o jei jų nėra – visų kitų užsiėmimų
+        const sameDayOthers = state.sessions
+          .filter(s => s.id !== source.id && s.date === source.date)
+          .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+        const candidates = sameDayOthers.length > 0
+          ? sameDayOthers
+          : state.sessions
+              .filter(s => s.id !== source.id)
+              .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
+
+        if (candidates.length === 0) {
+          alert('Nėra kito užsiėmimo, su kuriuo būtų galima sukeisti vietomis.');
+          return;
+        }
+
+        elSwapSourceSessionId.value = source.id;
+        const srcEnd = minsToTime(timeToMins(source.startTime) + Number(source.duration || 30));
+        elSwapSourceSummary.innerHTML = `
+          <strong>Pasirinktas užsiėmimas:</strong><br/>
+          ${escapeHtml(source.client)} · <strong>${escapeHtml(source.date)}</strong> (${escapeHtml(source.startTime)}–${srcEnd}, ${formatDuration(Number(source.duration || 30))})
+        `;
+
+        elSwapTargetSelect.innerHTML = candidates.map(c => {
+          const cEnd = minsToTime(timeToMins(c.startTime) + Number(c.duration || 30));
+          const stText = c.status === 'atsaukta' ? ' [Atšaukta]' : '';
+          const dayPart = c.date === source.date ? '' : `${c.date} `;
+          return `<option value="${escapeHtml(c.id)}">${escapeHtml(`${dayPart}${c.startTime}–${cEnd} · ${c.client} (${formatDuration(Number(c.duration || 30))})${stText}`)}</option>`;
+        }).join('');
+
+        // Jei įmanoma, pagal nutylėjimą parenkame artimiausią vėlesnį užsiėmimą tą pačią dieną
+        const laterSameDay = sameDayOthers.find(c => c.startTime > source.startTime);
+        if (laterSameDay) {
+          elSwapTargetSelect.value = laterSameDay.id;
+        }
+
+        elSwapSessionForm.reset();
+        elSwapSourceSessionId.value = source.id;
+        // Re-apply value after reset
+        if (laterSameDay) elSwapTargetSelect.value = laterSameDay.id;
+
+        elSwapSessionModal.classList.add('open');
+      }
+
+      elSwapSessionForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const srcId = elSwapSourceSessionId.value;
+        const tgtId = elSwapTargetSelect.value;
+        if (!srcId || !tgtId || srcId === tgtId) return;
+
+        const s1 = state.sessions.find(s => s.id === srcId);
+        const s2 = state.sessions.find(s => s.id === tgtId);
+        if (!s1 || !s2) return;
+
+        // Sukeičiame datą, pradžios laiką ir trukmę
+        const tmpDate = s1.date;
+        const tmpStart = s1.startTime;
+        const tmpDur = Number(s1.duration || 30);
+
+        s1.date = s2.date;
+        s1.startTime = s2.startTime;
+        s1.duration = Number(s2.duration || 30);
+
+        s2.date = tmpDate;
+        s2.startTime = tmpStart;
+        s2.duration = tmpDur;
+
+        selectedDate = parseISODate(s1.date);
+        closeModal('swapSessionModal');
+        closeModal('sessionModal');
+        renderAll();
+        await saveState();
+        showToast(`Sukeista vietomis: ${s1.client} (${s1.startTime}) ↔ ${s2.client} (${s2.startTime})`);
       });
 
       // Paleidimas
