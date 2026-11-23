@@ -2042,7 +2042,7 @@
 
   <!-- MODALAS: SUKEISTI UŽSIĖMIMUS VIETOMIS -->
   <div class="modal-backdrop" id="swapSessionModal">
-    <div class="modal" style="max-width:480px;">
+    <div class="modal" style="max-width:500px;">
       <div class="modal-header">
         <span>🔀 Sukeisti užsiėmimus vietomis</span>
         <button class="btn btn-sm" data-close="swapSessionModal">✕</button>
@@ -2052,11 +2052,19 @@
           <input type="hidden" id="swapSourceSessionId" />
           <div id="swapSourceSummary" style="padding:10px 12px; border-radius:8px; background:#eff6ff; border:1px solid #bfdbfe; font-size:13px; line-height:1.45;"></div>
           <div class="form-group">
-            <label class="form-label" for="swapTargetSelect">Pasirinkite, su kuo sukeisti vietomis (laikais):</label>
+            <label class="form-label" for="swapScopeSelect">Kurių dienų užsiėmimus rodyti sąraše?</label>
+            <select id="swapScopeSelect" class="form-select">
+              <option value="all" selected>Visos dienos (ir tos pačios, ir kitų dienų vaikai)</option>
+              <option value="other_days">Tik kitų dienų vaikai</option>
+              <option value="same_day">Tik tos pačios dienos vaikai</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="swapTargetSelect">Pasirinkite užsiėmimą, su kuriuo sukeisti vietomis:</label>
             <select id="swapTargetSelect" class="form-select" required></select>
           </div>
           <p style="font-size:12px; color:var(--muted); line-height:1.45;">
-            Sukeičiant vietomis, abiejų užsiėmimų <strong>pradžios laikas</strong> ir <strong>trukmė</strong> apsikeis tarpusavyje, o klientas, tema, pastabos ir prisegti failai liks prie savo užsiėmimo.
+            Sukeičiant vietomis, abiejų užsiėmimų <strong>data</strong>, <strong>pradžios laikas</strong> ir <strong>trukmė</strong> apsikeis tarpusavyje, o vaikas, tema, pastabos ir prisegti failai liks prie savo įrašo.
           </p>
         </div>
         <div class="modal-footer">
@@ -4905,6 +4913,7 @@
       const elSwapSessionForm = document.getElementById('swapSessionForm');
       const elSwapSourceSessionId = document.getElementById('swapSourceSessionId');
       const elSwapSourceSummary = document.getElementById('swapSourceSummary');
+      const elSwapScopeSelect = document.getElementById('swapScopeSelect');
       const elSwapTargetSelect = document.getElementById('swapTargetSelect');
 
       document.getElementById('btnSwapSessionModal').addEventListener('click', () => {
@@ -4912,51 +4921,69 @@
         if (sid) openSwapModal(sid);
       });
 
+      function populateSwapTargetOptions(source, scope) {
+        const others = state.sessions.filter(s => s.id !== source.id);
+        let filtered = others;
+        if (scope === 'same_day') {
+          filtered = others.filter(s => s.date === source.date);
+        } else if (scope === 'other_days') {
+          filtered = others.filter(s => s.date !== source.date);
+        }
+
+        filtered.sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
+
+        if (filtered.length === 0) {
+          elSwapTargetSelect.innerHTML = '';
+          elSwapTargetSelect.disabled = true;
+          document.getElementById('btnConfirmSwap').disabled = true;
+          return;
+        }
+
+        elSwapTargetSelect.disabled = false;
+        document.getElementById('btnConfirmSwap').disabled = false;
+
+        elSwapTargetSelect.innerHTML = filtered.map(c => {
+          const cEnd = minsToTime(timeToMins(c.startTime) + Number(c.duration || 30));
+          const stText = c.status === 'atsaukta' ? ' [Atšaukta]' : '';
+          const dayPart = c.date === source.date ? `[Ta pati diena] ${c.date}` : c.date;
+          return `<option value="${escapeHtml(c.id)}">${escapeHtml(`${dayPart} ${c.startTime}–${cEnd} · ${c.client} (${formatDuration(Number(c.duration || 30))})${stText}`)}</option>`;
+        }).join('');
+
+        // Pagal nutylėjimą parenkame artimiausią vėlesnį užsiėmimą tą pačią dieną, o jei jo nėra – artimiausią kitą užsiėmimą
+        const laterSameDay = filtered.find(c => c.date === source.date && c.startTime > source.startTime);
+        const nextOverall = filtered.find(c => `${c.date} ${c.startTime}` >= `${source.date} ${source.startTime}`);
+        const picked = laterSameDay || nextOverall || filtered[0];
+        if (picked) {
+          elSwapTargetSelect.value = picked.id;
+        }
+      }
+
+      elSwapScopeSelect.addEventListener('change', () => {
+        const source = state.sessions.find(s => s.id === elSwapSourceSessionId.value);
+        if (source) {
+          populateSwapTargetOptions(source, elSwapScopeSelect.value);
+        }
+      });
+
       function openSwapModal(sourceId) {
         const source = state.sessions.find(s => s.id === sourceId);
         if (!source) return;
 
-        // Pirmiausia ieškome tos pačios dienos kitų užsiėmimų, o jei jų nėra – visų kitų užsiėmimų
-        const sameDayOthers = state.sessions
-          .filter(s => s.id !== source.id && s.date === source.date)
-          .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-        const candidates = sameDayOthers.length > 0
-          ? sameDayOthers
-          : state.sessions
-              .filter(s => s.id !== source.id)
-              .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
-
-        if (candidates.length === 0) {
+        const allOthers = state.sessions.filter(s => s.id !== source.id);
+        if (allOthers.length === 0) {
           alert('Nėra kito užsiėmimo, su kuriuo būtų galima sukeisti vietomis.');
           return;
         }
 
         elSwapSourceSessionId.value = source.id;
+        elSwapScopeSelect.value = 'all';
         const srcEnd = minsToTime(timeToMins(source.startTime) + Number(source.duration || 30));
         elSwapSourceSummary.innerHTML = `
           <strong>Pasirinktas užsiėmimas:</strong><br/>
           ${escapeHtml(source.client)} · <strong>${escapeHtml(source.date)}</strong> (${escapeHtml(source.startTime)}–${srcEnd}, ${formatDuration(Number(source.duration || 30))})
         `;
 
-        elSwapTargetSelect.innerHTML = candidates.map(c => {
-          const cEnd = minsToTime(timeToMins(c.startTime) + Number(c.duration || 30));
-          const stText = c.status === 'atsaukta' ? ' [Atšaukta]' : '';
-          const dayPart = c.date === source.date ? '' : `${c.date} `;
-          return `<option value="${escapeHtml(c.id)}">${escapeHtml(`${dayPart}${c.startTime}–${cEnd} · ${c.client} (${formatDuration(Number(c.duration || 30))})${stText}`)}</option>`;
-        }).join('');
-
-        // Jei įmanoma, pagal nutylėjimą parenkame artimiausią vėlesnį užsiėmimą tą pačią dieną
-        const laterSameDay = sameDayOthers.find(c => c.startTime > source.startTime);
-        if (laterSameDay) {
-          elSwapTargetSelect.value = laterSameDay.id;
-        }
-
-        elSwapSessionForm.reset();
-        elSwapSourceSessionId.value = source.id;
-        // Re-apply value after reset
-        if (laterSameDay) elSwapTargetSelect.value = laterSameDay.id;
-
+        populateSwapTargetOptions(source, 'all');
         elSwapSessionModal.classList.add('open');
       }
 
