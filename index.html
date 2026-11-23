@@ -1973,9 +1973,8 @@
               <select class="select-input" id="statusFilter">
                 <option value="all">Visos būsenos</option>
                 <option value="suplanuota">Suplanuota</option>
-                <option value="patvirtinta">Patvirtinta</option>
                 <option value="ivyko">Įvyko</option>
-                <option value="atsaukta">Atšaukta</option>
+                <option value="atsaukta">Atšaukta/Neatvyko</option>
               </select>
             </div>
             <div class="cal-legend">
@@ -2139,9 +2138,8 @@
               <label class="form-label" for="inputStatus">Būsena</label>
               <select id="inputStatus" class="form-select">
                 <option value="suplanuota">Suplanuota</option>
-                <option value="patvirtinta">Patvirtinta</option>
                 <option value="ivyko">Įvyko</option>
-                <option value="atsaukta">Atšaukta</option>
+                <option value="atsaukta">Atšaukta/Neatvyko</option>
               </select>
             </div>
           </div>
@@ -2532,9 +2530,9 @@
       ];
       const STATUS_LABELS = {
         suplanuota: 'Suplanuota',
-        patvirtinta: 'Patvirtinta',
+        patvirtinta: 'Suplanuota',
         ivyko: 'Įvyko',
-        atsaukta: 'Atšaukta'
+        atsaukta: 'Atšaukta/Neatvyko'
       };
       const CLIENT_STATUS_LABELS = {
         aktyvus: 'Aktyvus',
@@ -4126,12 +4124,11 @@
 
         const totalAll = monthSessions.length;
         const completed = monthSessions.filter(s => s.status === 'ivyko').length;
-        const confirmed = monthSessions.filter(s => s.status === 'patvirtinta').length;
-        const planned = monthSessions.filter(s => s.status === 'suplanuota').length;
+        const planned = monthSessions.filter(s => s.status === 'suplanuota' || s.status === 'patvirtinta').length;
         const cancelled = monthSessions.filter(s => s.status === 'atsaukta').length;
         const nonCancelled = totalAll - cancelled;
 
-        const attendancePct = nonCancelled > 0 ? Math.round((completed / nonCancelled) * 100) : 0;
+        const attendancePct = totalAll > 0 ? Math.round((completed / totalAll) * 100) : 0;
         const cancelPct = totalAll > 0 ? Math.round((cancelled / totalAll) * 100) : 0;
 
         const completedMins = monthSessions
@@ -4148,7 +4145,7 @@
             <div class="stats-kpi-label">Užsiėmimai (${monthLabel})</div>
             <div class="stats-kpi-value">${nonCancelled}</div>
             <div class="stats-kpi-sub">
-              Įvyko: <strong>${completed}</strong> · Suplanuota/patv.: <strong>${planned + confirmed}</strong>
+              Įvyko: <strong>${completed}</strong> · Suplanuota: <strong>${planned}</strong>
             </div>
           </div>
 
@@ -4157,14 +4154,14 @@
             <div class="stats-kpi-value" style="color:${attendancePct >= 80 ? 'var(--success)' : (attendancePct >= 50 ? 'var(--warning)' : 'var(--text)')};">
               ${attendancePct}%
             </div>
-            <div class="stats-kpi-sub">Įvyko ${completed} iš ${nonCancelled} neatsauktų užsiėmimų</div>
+            <div class="stats-kpi-sub">Įvyko ${completed} iš ${totalAll} užsiėmimų</div>
             <div class="progress-bar">
               <div class="progress-fill" style="width:${attendancePct}%; background:${attendancePct >= 80 ? 'var(--success)' : (attendancePct >= 50 ? 'var(--warning)' : 'var(--primary)')};"></div>
             </div>
           </div>
 
           <div class="stats-kpi-card">
-            <div class="stats-kpi-label">Atšaukti užsiėmimai</div>
+            <div class="stats-kpi-label">Atšaukta/Neatvyko</div>
             <div class="stats-kpi-value" style="color:${cancelled > 0 ? 'var(--danger)' : 'var(--text)'};">${cancelled}</div>
             <div class="stats-kpi-sub">${totalAll > 0 ? `${cancelPct}% nuo visų (${totalAll}) įrašų` : 'Šį mėnesį įrašų nėra'}</div>
           </div>
@@ -4297,16 +4294,15 @@
                   <th>Klientas</th>
                   <th>Viso užsiėmimų</th>
                   <th>Įvyko</th>
-                  <th>Suplanuota / Patv.</th>
-                  <th>Atšaukta</th>
+                  <th>Suplanuota</th>
+                  <th>Atšaukta/Neatvyko</th>
                   <th>Trukmė (įvyko / viso)</th>
                   <th>Bendras lankomumas</th>
                 </tr>
               </thead>
               <tbody>
                 ${allClientRows.map(r => {
-                  const nonCanc = r.total - r.cancelled;
-                  const pct = nonCanc > 0 ? Math.round((r.completed / nonCanc) * 100) : 0;
+                  const pct = r.total > 0 ? Math.round((r.completed / r.total) * 100) : 0;
                   const fillClass = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
                   const isExpanded = expandedStatsClients.has(r.key);
                   const monthList = Array.from(r.months.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
@@ -4357,16 +4353,15 @@
                                     <th>Mėnuo</th>
                                     <th>Viso užsiėmimų</th>
                                     <th>Įvyko</th>
-                                    <th>Suplanuota / Patv.</th>
-                                    <th>Atšaukta</th>
+                                    <th>Suplanuota</th>
+                                    <th>Atšaukta/Neatvyko</th>
                                     <th>Trukmė (įvyko / viso)</th>
                                     <th>Mėnesio lankomumas</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   ${monthList.map(m => {
-                                    const mNonCanc = m.total - m.cancelled;
-                                    const mPct = mNonCanc > 0 ? Math.round((m.completed / mNonCanc) * 100) : 0;
+                                    const mPct = m.total > 0 ? Math.round((m.completed / m.total) * 100) : 0;
                                     const mFill = mPct >= 80 ? '' : (mPct >= 50 ? 'mid' : 'low');
                                     return `
                                       <tr>
@@ -4437,8 +4432,8 @@
                 <th>Mėnuo</th>
                 <th>Viso įrašų</th>
                 <th>Įvyko</th>
-                <th>Suplanuota / Patv.</th>
-                <th>Atšaukta</th>
+                <th>Suplanuota</th>
+                <th>Atšaukta/Neatvyko</th>
                 <th>Bendra trukmė</th>
                 <th>Lankomumas</th>
               </tr>
@@ -4454,8 +4449,7 @@
                 const comp = list.filter(s => s.status === 'ivyko').length;
                 const canc = list.filter(s => s.status === 'atsaukta').length;
                 const upc = tot - comp - canc;
-                const nonCanc = tot - canc;
-                const pct = nonCanc > 0 ? Math.round((comp / nonCanc) * 100) : 0;
+                const pct = tot > 0 ? Math.round((comp / tot) * 100) : 0;
                 const fillClass = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
                 const mins = calcActiveMinutes(list);
                 const label = formatMonthLabel(mKey);
@@ -4767,7 +4761,7 @@
           elInputDate.value = s.date;
           elInputTime.value = normalize24Time(s.startTime) || '09:00';
           elInputDuration.value = String(s.duration || 30);
-          elInputStatus.value = s.status;
+          elInputStatus.value = (s.status === 'patvirtinta') ? 'suplanuota' : s.status;
           elInputNotes.value = s.notes || '';
           draftSessionAttachments = Array.isArray(s.attachments) ? s.attachments.map(a => ({ ...a })) : [];
           elBtnDeleteSession.style.display = 'inline-flex';
