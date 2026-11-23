@@ -1608,6 +1608,52 @@
       flex-shrink: 0;
     }
 
+    .modal-header-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+    }
+
+    .kebab-menu-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .kebab-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      min-width: 175px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.16);
+      padding: 4px;
+      display: none;
+      flex-direction: column;
+      z-index: 65;
+    }
+    .kebab-dropdown.open { display: flex; }
+
+    .kebab-dropdown-item {
+      width: 100%;
+      border: none;
+      background: transparent;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--danger);
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .kebab-dropdown-item:hover { background: #fef2f2; }
+
     .modal-body {
       padding: 16px 18px;
       display: flex;
@@ -2004,7 +2050,18 @@
     <div class="modal">
       <div class="modal-header">
         <span id="clientModalTitle">Naujas klientas</span>
-        <button class="btn btn-sm" data-close="clientModal">✕</button>
+        <div class="modal-header-actions">
+          <div class="kebab-menu-wrap" id="clientKebabWrap" style="display:none;">
+            <button type="button" class="btn btn-sm" id="btnClientKebab" title="Daugiau veiksmų" aria-haspopup="true" aria-expanded="false">⋮</button>
+            <div class="kebab-dropdown" id="clientKebabDropdown" role="menu">
+              <button type="button" class="kebab-dropdown-item" id="btnDeleteClientModal" role="menuitem">
+                <span>🗑️</span>
+                <span>Ištrinti klientą</span>
+              </button>
+            </div>
+          </div>
+          <button class="btn btn-sm" data-close="clientModal">✕</button>
+        </div>
       </div>
       <form id="clientForm">
         <div class="modal-body">
@@ -2032,8 +2089,7 @@
               <label class="form-label" for="clientStatus">Statusas</label>
               <select id="clientStatus" class="form-select">
                 <option value="aktyvus">Aktyvus</option>
-                <option value="pauze">Pauzė</option>
-                <option value="baiges">Baigė mokymus</option>
+                <option value="neaktyvus">Neaktyvus</option>
               </select>
             </div>
           </div>
@@ -2043,9 +2099,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <div>
-            <button type="button" class="btn btn-danger" id="btnDeleteClientModal" style="display:none">Ištrinti</button>
-          </div>
+          <div></div>
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn" data-close="clientModal">Atšaukti</button>
             <button type="submit" class="btn btn-primary">Išsaugoti</button>
@@ -2331,9 +2385,14 @@
       };
       const CLIENT_STATUS_LABELS = {
         aktyvus: 'Aktyvus',
-        pauze: 'Pauzė',
-        baiges: 'Baigė mokymus'
+        neaktyvus: 'Neaktyvus',
+        pauze: 'Neaktyvus',
+        baiges: 'Neaktyvus'
       };
+
+      function isClientInactive(status) {
+        return status !== 'aktyvus';
+      }
       const TASK_STATUS_LABELS = {
         skirta: 'Skirta',
         atlikta: 'Atlikta',
@@ -4053,9 +4112,14 @@
           expandedStatsClients.add(statsClientFilter.toLowerCase());
         }
 
-        const allClientRows = Array.from(allClientMap.values()).sort(
-          (a, b) => b.total - a.total || a.name.localeCompare(b.name, 'lt')
-        );
+        const allClientRows = Array.from(allClientMap.values()).sort((a, b) => {
+          const cA = state.clients.find(c => c.name.trim().toLowerCase() === a.key);
+          const cB = state.clients.find(c => c.name.trim().toLowerCase() === b.key);
+          const inactA = cA ? (isClientInactive(cA.status) ? 1 : 0) : 0;
+          const inactB = cB ? (isClientInactive(cB.status) ? 1 : 0) : 0;
+          if (inactA !== inactB) return inactA - inactB;
+          return b.total - a.total || a.name.localeCompare(b.name, 'lt');
+        });
 
         if (allClientRows.length === 0) {
           elStatsClientsTableWrap.innerHTML = `<div style="padding:20px;"><div class="empty-state">Klientų arba užsiėmimų duomenų dar nėra.</div></div>`;
@@ -4263,7 +4327,12 @@
             if (!q) return true;
             return `${c.name} ${c.level || ''} ${c.phone || ''} ${c.email || ''} ${c.description || ''}`.toLowerCase().includes(q);
           })
-          .sort((a, b) => a.name.localeCompare(b.name, 'lt'));
+          .sort((a, b) => {
+            const inactA = isClientInactive(a.status) ? 1 : 0;
+            const inactB = isClientInactive(b.status) ? 1 : 0;
+            if (inactA !== inactB) return inactA - inactB;
+            return a.name.localeCompare(b.name, 'lt');
+          });
 
         if (filteredClients.length === 0) {
           elClientsListBody.innerHTML = `<div class="empty-state">Klientų nerasta.<br/>Paspauskite <strong>+ Pridėti</strong>, kad sukurtumėte naują klientą.</div>`;
@@ -4275,7 +4344,7 @@
             const activeTasks = (c.tasks || []).filter(t => t.status === 'skirta').length;
             const totalTasks = (c.tasks || []).length;
             const filesCount = getClientAllAttachments(c).length;
-            const badgeClass = c.status === 'aktyvus' ? 'badge-green' : (c.status === 'pauze' ? 'badge-amber' : '');
+            const badgeClass = c.status === 'aktyvus' ? 'badge-green' : '';
             return `
               <div class="client-list-item ${c.id === selectedClientId ? 'active' : ''}" data-client-id="${c.id}">
                 <div class="client-item-top">
@@ -4318,7 +4387,7 @@
           .sort((a, b) => `${b.date} ${b.startTime}`.localeCompare(`${a.date} ${a.startTime}`));
         const allFiles = getClientAllAttachments(client);
 
-        const badgeClass = client.status === 'aktyvus' ? 'badge-green' : (client.status === 'pauze' ? 'badge-amber' : '');
+        const badgeClass = client.status === 'aktyvus' ? 'badge-green' : '';
 
         elClientDetailWrap.innerHTML = `
           <div class="client-profile-header">
@@ -4337,7 +4406,6 @@
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button class="btn btn-primary btn-sm" id="btnClientScheduleSession">+ Suplanuoti užsiėmimą</button>
               <button class="btn btn-sm" id="btnEditCurrentClient">Redaguoti klientą</button>
-              <button class="btn btn-danger btn-sm" id="btnDeleteCurrentClient">Ištrinti</button>
             </div>
           </div>
 
@@ -4452,7 +4520,7 @@
           openSessionModal(null, toISODate(new Date()), '10:00', client.name);
         });
         document.getElementById('btnEditCurrentClient').addEventListener('click', () => openClientModal(client.id));
-        document.getElementById('btnDeleteCurrentClient').addEventListener('click', () => deleteClient(client.id));
+
         document.getElementById('btnAddTask').addEventListener('click', () => openTaskModal(null, client.id));
 
         // Tiesioginis failo įkėlimas kliento kortelėje (per statinį elementą)
@@ -4598,8 +4666,32 @@
         showToast('Užsiėmimas ištrintas');
       }
 
+      const elClientKebabWrap = document.getElementById('clientKebabWrap');
+      const elBtnClientKebab = document.getElementById('btnClientKebab');
+      const elClientKebabDropdown = document.getElementById('clientKebabDropdown');
+
+      function closeClientKebab() {
+        if (elClientKebabDropdown) elClientKebabDropdown.classList.remove('open');
+        if (elBtnClientKebab) elBtnClientKebab.setAttribute('aria-expanded', 'false');
+      }
+
+      if (elBtnClientKebab) {
+        elBtnClientKebab.addEventListener('click', e => {
+          e.stopPropagation();
+          const isOpen = elClientKebabDropdown.classList.toggle('open');
+          elBtnClientKebab.setAttribute('aria-expanded', String(isOpen));
+        });
+      }
+
+      document.addEventListener('click', e => {
+        if (elClientKebabWrap && !elClientKebabWrap.contains(e.target)) {
+          closeClientKebab();
+        }
+      });
+
       function openClientModal(id = null) {
         elClientForm.reset();
+        closeClientKebab();
         if (id) {
           const c = state.clients.find(x => x.id === id);
           if (!c) return;
@@ -4609,14 +4701,14 @@
           elClientPhone.value = c.phone || '';
           elClientEmail.value = c.email || '';
           elClientLevel.value = c.level || '';
-          elClientStatus.value = c.status || 'aktyvus';
+          elClientStatus.value = c.status === 'aktyvus' ? 'aktyvus' : 'neaktyvus';
           elClientDescription.value = c.description || '';
-          elBtnDeleteClientModal.style.display = 'inline-flex';
+          elClientKebabWrap.style.display = 'inline-flex';
         } else {
           elClientModalTitle.textContent = 'Naujas klientas';
           elClientId.value = '';
           elClientStatus.value = 'aktyvus';
-          elBtnDeleteClientModal.style.display = 'none';
+          elClientKebabWrap.style.display = 'none';
         }
         elClientModal.classList.add('open');
         elClientName.focus();
@@ -4625,15 +4717,38 @@
       async function deleteClient(id) {
         const c = state.clients.find(x => x.id === id);
         if (!c) return;
-        if (!confirm(`Ar tikrai norite ištrinti klientą „${c.name}“ ir jo užduočių istoriją?`)) return;
+        closeClientKebab();
+
+        if (!confirm(`Ar tikrai norite ištrinti klientą „${c.name}“?`)) return;
+
+        const linkedSessions = state.sessions.filter(
+          s => s.client && s.client.trim().toLowerCase() === c.name.trim().toLowerCase()
+        );
+        let deleteLinkedSessions = false;
+        if (linkedSessions.length > 0) {
+          deleteLinkedSessions = confirm(
+            `Klientas „${c.name}“ turi užsiėmimų kalendoriuje (${linkedSessions.length} įr.).\n\n` +
+            `Spauskite OK (Gerai), jei norite IŠTRINTI ir jo užsiėmimų įrašus kalendoriuje,\n` +
+            `arba Cancel (Atšaukti), jei norite PALIKTI užsiėmimų įrašus kalendoriuje.`
+          );
+        }
+
         state.clients = state.clients.filter(x => x.id !== id);
+        if (deleteLinkedSessions) {
+          state.sessions = state.sessions.filter(
+            s => !(s.client && s.client.trim().toLowerCase() === c.name.trim().toLowerCase())
+          );
+        }
+
         if (selectedClientId === id) {
           selectedClientId = state.clients.length > 0 ? state.clients[0].id : null;
         }
         closeModal('clientModal');
         renderAll();
         await saveState();
-        showToast('Klientas ištrintas');
+        showToast(deleteLinkedSessions
+          ? 'Klientas ir jo užsiėmimų įrašai ištrinti'
+          : 'Klientas ištrintas (užsiėmimų įrašai palikti)');
       }
 
       function openTaskModal(taskId = null, explicitClientId = null) {
