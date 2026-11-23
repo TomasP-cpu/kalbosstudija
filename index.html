@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Užsiėmimų kalendorius ir klientai</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -30,6 +31,62 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+
+    /* Prisijungimo ekranas */
+    .auth-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #eff6ff 0%, #f4f6f9 100%);
+    }
+
+    .auth-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+      width: 100%;
+      max-width: 400px;
+      padding: 28px 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .auth-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .auth-subtitle {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-top: -10px;
+      line-height: 1.45;
+    }
+
+    .auth-error {
+      display: none;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      font-size: 13px;
+    }
+
+    /* Programėlės apvalkalas */
+    #appShell {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
     }
 
     /* Viršutinė juosta */
@@ -62,7 +119,6 @@
       font-weight: 700;
     }
 
-    /* Pagrindiniai skirtukai (Kalendorius / Klientai) */
     .main-nav {
       display: inline-flex;
       background: #f1f5f9;
@@ -112,6 +168,116 @@
       flex-wrap: wrap;
     }
 
+    .sync-status {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .sync-status.saving {
+      background: #fffbeb;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+    .sync-status.error {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+
+    /* Vartotojo meniu kampe */
+    .user-menu-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .user-avatar-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      border: 1px solid #bfdbfe;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .user-avatar-btn:hover,
+    .user-avatar-btn.open {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .user-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      width: 240px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 40;
+    }
+    .user-dropdown.open { display: flex; }
+
+    .user-dropdown-header {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .user-dropdown-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .user-dropdown-email {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 2px;
+      word-break: break-all;
+    }
+
+    .user-dropdown-item {
+      width: 100%;
+      border: none;
+      background: transparent;
+      padding: 8px 10px;
+      border-radius: 7px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      transition: background 0.12s ease;
+    }
+    .user-dropdown-item:hover { background: #f1f5f9; }
+    .user-dropdown-item.danger { color: var(--danger); }
+    .user-dropdown-item.danger:hover { background: #fef2f2; }
+
     /* Mygtukai */
     .btn {
       display: inline-flex;
@@ -131,6 +297,7 @@
     }
 
     .btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .btn-primary {
       background: var(--primary);
       color: #fff;
@@ -155,7 +322,6 @@
     .page-view { display: none; flex: 1; }
     .page-view.active { display: flex; }
 
-    /* Kalendoriaus išdėstymas */
     .layout {
       display: grid;
       grid-template-columns: 1fr 340px;
@@ -167,7 +333,6 @@
       flex: 1;
     }
 
-    /* Klientų išdėstymas */
     .clients-layout {
       display: grid;
       grid-template-columns: 340px 1fr;
@@ -491,7 +656,7 @@
       cursor: pointer;
     }
 
-    /* DEŠINĖS PUSĖS SKYDAS (Kalendoriaus) */
+    /* DEŠINĖS PUSĖS SKYDAS */
     .sidebar-header {
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
@@ -677,7 +842,6 @@
     .client-item-name { font-weight: 700; font-size: 14px; }
     .client-item-meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
 
-    /* Kliento detalus vaizdas */
     .client-detail-wrap {
       padding: 20px;
       display: flex;
@@ -779,7 +943,6 @@
     .task-notes { font-size: 12.5px; color: #475569; margin-top: 4px; }
     .task-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 
-    /* Kliento užsiėmimų istorijos lentelė */
     .history-list {
       display: flex;
       flex-direction: column;
@@ -859,6 +1022,16 @@
       font-size: 12.5px;
     }
 
+    .form-error-box {
+      display: none;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      font-size: 12.5px;
+    }
+
     .modal-footer {
       padding: 12px 18px;
       border-top: 1px solid var(--border);
@@ -894,94 +1067,142 @@
 </head>
 <body>
 
-  <header>
-    <div class="header-left">
-      <div class="brand">
+  <!-- PRISIJUNGIMO EKRANAS -->
+  <div class="auth-screen" id="authScreen">
+    <div class="auth-card">
+      <div class="auth-logo">
         <span>📅</span>
         <span>Užsiėmimų kalendorius</span>
       </div>
-      <nav class="main-nav">
-        <button class="main-nav-btn active" data-page="calendar">Kalendorius</button>
-        <button class="main-nav-btn" data-page="clients">
-          Klientai <span class="nav-count" id="clientsCountBadge">0</span>
+      <p class="auth-subtitle">Prisijunkite savo paskyra, kad matytumėte ir sinchronizuotumėte savo tvarkaraštį bei klientus visuose įrenginiuose.</p>
+      <div class="auth-error" id="authError"></div>
+      <form id="loginForm" style="display:flex; flex-direction:column; gap:14px;">
+        <div class="form-group">
+          <label class="form-label" for="loginEmail">El. paštas</label>
+          <input type="email" id="loginEmail" class="form-input" required placeholder="vardas@pavyzdys.lt" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="loginPassword">Slaptažodis</label>
+          <input type="password" id="loginPassword" class="form-input" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-primary" id="btnLoginSubmit" style="width:100%; padding:10px;">
+          Prisijungti
         </button>
-      </nav>
+      </form>
     </div>
-    <div class="header-actions">
-      <button class="btn btn-primary" id="btnNewSession">+ Naujas užsiėmimas</button>
-      <button class="btn" id="btnNewClientHeader">+ Naujas klientas</button>
-      <button class="btn" id="btnExport">Eksportuoti JSON</button>
-      <button class="btn" id="btnImport">Importuoti JSON</button>
-      <input type="file" id="fileImport" accept=".json" style="display:none" />
-    </div>
-  </header>
-
-  <!-- 1 SKIRTUKAS: KALENDORIUS -->
-  <div class="page-view active" id="pageCalendar">
-    <main class="layout">
-      <section class="card">
-        <div class="cal-toolbar">
-          <div class="toolbar-row">
-            <div class="nav-group">
-              <button class="btn" id="btnPrev" title="Ankstesnis">←</button>
-              <button class="btn" id="btnToday">Šiandien</button>
-              <button class="btn" id="btnNext" title="Kitas">→</button>
-              <span class="period-title" id="periodTitle"></span>
-            </div>
-            <div class="view-group">
-              <button class="btn view-btn" data-view="day">Diena</button>
-              <button class="btn view-btn" data-view="week">Savaitė</button>
-              <button class="btn view-btn active" data-view="month">Mėnuo</button>
-            </div>
-          </div>
-          <div class="filter-row">
-            <input type="text" class="search-input" id="searchInput" placeholder="Ieškoti pagal klientą ar temą..." />
-            <select class="select-input" id="statusFilter">
-              <option value="all">Visos būsenos</option>
-              <option value="suplanuota">Suplanuota</option>
-              <option value="patvirtinta">Patvirtinta</option>
-              <option value="ivyko">Įvyko</option>
-              <option value="atsaukta">Atšaukta</option>
-            </select>
-          </div>
-        </div>
-        <div class="cal-body" id="calendarBody"></div>
-      </section>
-
-      <aside class="card">
-        <div class="sidebar-header">
-          <div class="tabs">
-            <button class="tab-btn active" data-tab="schedule">Tvarkaraštis</button>
-            <button class="tab-btn" data-tab="summary">Santrauka</button>
-          </div>
-          <div class="sidebar-subbar">
-            <span class="sidebar-date-label" id="sidebarDateLabel"></span>
-            <button class="btn btn-primary btn-sm" id="btnQuickAdd">+ Pridėti</button>
-          </div>
-        </div>
-        <div class="sidebar-body" id="sidebarBody"></div>
-      </aside>
-    </main>
   </div>
 
-  <!-- 2 SKIRTUKAS: KLIENTAI -->
-  <div class="page-view" id="pageClients">
-    <main class="clients-layout">
-      <aside class="card">
-        <div class="clients-list-header">
-          <div class="sidebar-subbar">
-            <strong>Klientų sąrašas</strong>
-            <button class="btn btn-primary btn-sm" id="btnNewClientList">+ Pridėti</button>
-          </div>
-          <input type="text" class="search-input" id="clientSearchInput" placeholder="Ieškoti kliento..." />
+  <!-- PAGRINDINĖ PROGRAMĖLĖ -->
+  <div id="appShell">
+    <header>
+      <div class="header-left">
+        <div class="brand">
+          <span>📅</span>
+          <span>Užsiėmimų kalendorius</span>
         </div>
-        <div class="clients-list-body" id="clientsListBody"></div>
-      </aside>
+        <nav class="main-nav">
+          <button class="main-nav-btn active" data-page="calendar">Kalendorius</button>
+          <button class="main-nav-btn" data-page="clients">
+            Klientai <span class="nav-count" id="clientsCountBadge">0</span>
+          </button>
+        </nav>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" id="btnNewSession">+ Naujas užsiėmimas</button>
+        <button class="btn" id="btnNewClientHeader">+ Naujas klientas</button>
+        <span class="sync-status" id="syncStatus" title="Duomenys saugomi debesyje">☁️ Sinchronizuota</span>
+        <button class="btn btn-sm" id="btnManualSync" title="Atnaujinti duomenis iš debesies">↻</button>
 
-      <section class="card">
-        <div class="client-detail-wrap" id="clientDetailWrap"></div>
-      </section>
-    </main>
+        <!-- Vartotojo piktograma kampe su meniu -->
+        <div class="user-menu-wrap" id="userMenuWrap">
+          <button type="button" class="user-avatar-btn" id="btnUserMenu" title="Vartotojo paskyra" aria-haspopup="true" aria-expanded="false">
+            <span id="userAvatarLetter">👤</span>
+          </button>
+          <div class="user-dropdown" id="userDropdown" role="menu">
+            <div class="user-dropdown-header">
+              <div class="user-dropdown-label">Prisijungęs vartotojas</div>
+              <div class="user-dropdown-email" id="userEmailLabel"></div>
+            </div>
+            <button type="button" class="user-dropdown-item" id="btnOpenPasswordModal" role="menuitem">
+              <span>🔑</span>
+              <span>Keisti slaptažodį</span>
+            </button>
+            <button type="button" class="user-dropdown-item danger" id="btnLogout" role="menuitem">
+              <span>🚪</span>
+              <span>Atsijungti</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 1 SKIRTUKAS: KALENDORIUS -->
+    <div class="page-view active" id="pageCalendar">
+      <main class="layout">
+        <section class="card">
+          <div class="cal-toolbar">
+            <div class="toolbar-row">
+              <div class="nav-group">
+                <button class="btn" id="btnPrev" title="Ankstesnis">←</button>
+                <button class="btn" id="btnToday">Šiandien</button>
+                <button class="btn" id="btnNext" title="Kitas">→</button>
+                <span class="period-title" id="periodTitle"></span>
+              </div>
+              <div class="view-group">
+                <button class="btn view-btn" data-view="day">Diena</button>
+                <button class="btn view-btn" data-view="week">Savaitė</button>
+                <button class="btn view-btn active" data-view="month">Mėnuo</button>
+              </div>
+            </div>
+            <div class="filter-row">
+              <input type="text" class="search-input" id="searchInput" placeholder="Ieškoti pagal klientą ar temą..." />
+              <select class="select-input" id="statusFilter">
+                <option value="all">Visos būsenos</option>
+                <option value="suplanuota">Suplanuota</option>
+                <option value="patvirtinta">Patvirtinta</option>
+                <option value="ivyko">Įvyko</option>
+                <option value="atsaukta">Atšaukta</option>
+              </select>
+            </div>
+          </div>
+          <div class="cal-body" id="calendarBody"></div>
+        </section>
+
+        <aside class="card">
+          <div class="sidebar-header">
+            <div class="tabs">
+              <button class="tab-btn active" data-tab="schedule">Tvarkaraštis</button>
+              <button class="tab-btn" data-tab="summary">Santrauka</button>
+            </div>
+            <div class="sidebar-subbar">
+              <span class="sidebar-date-label" id="sidebarDateLabel"></span>
+              <button class="btn btn-primary btn-sm" id="btnQuickAdd">+ Pridėti</button>
+            </div>
+          </div>
+          <div class="sidebar-body" id="sidebarBody"></div>
+        </aside>
+      </main>
+    </div>
+
+    <!-- 2 SKIRTUKAS: KLIENTAI -->
+    <div class="page-view" id="pageClients">
+      <main class="clients-layout">
+        <aside class="card">
+          <div class="clients-list-header">
+            <div class="sidebar-subbar">
+              <strong>Klientų sąrašas</strong>
+              <button class="btn btn-primary btn-sm" id="btnNewClientList">+ Pridėti</button>
+            </div>
+            <input type="text" class="search-input" id="clientSearchInput" placeholder="Ieškoti kliento..." />
+          </div>
+          <div class="clients-list-body" id="clientsListBody"></div>
+        </aside>
+
+        <section class="card">
+          <div class="client-detail-wrap" id="clientDetailWrap"></div>
+        </section>
+      </main>
+    </div>
   </div>
 
   <!-- MODALAS 1: UŽSIĖMIMO KŪRIMAS / REDAGAVIMAS -->
@@ -1173,12 +1394,46 @@
     </div>
   </div>
 
+  <!-- MODALAS 4: SLAPTAŽODŽIO KEITIMAS -->
+  <div class="modal-backdrop" id="passwordModal">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <span>🔑 Keisti slaptažodį</span>
+        <button class="btn btn-sm" data-close="passwordModal">✕</button>
+      </div>
+      <form id="passwordForm">
+        <div class="modal-body">
+          <div class="form-error-box" id="passwordError"></div>
+          <div class="form-group">
+            <label class="form-label" for="newPassword">Naujas slaptažodis (min. 6 simboliai) *</label>
+            <input type="password" id="newPassword" class="form-input" required minlength="6" placeholder="••••••••" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="confirmPassword">Pakartokite naują slaptažodį *</label>
+            <input type="password" id="confirmPassword" class="form-input" required minlength="6" placeholder="••••••••" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div></div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn" data-close="passwordModal">Atšaukti</button>
+            <button type="submit" class="btn btn-primary" id="btnSavePassword">Išsaugoti slaptažodį</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
     (() => {
-      const STORAGE_KEY_V2 = 'lt_uzsiemimu_kalendorius_v2';
-      const STORAGE_KEY_V1 = 'lt_uzsiemimu_kalendorius_v1';
+      // ==================== SUPABASE KONFIGŪRACIJA ====================
+      const SUPABASE_URL = 'https://rebcqymagmdfoxzlkdeq.supabase.co';
+      const SUPABASE_KEY = 'sb_publishable_oXTgWb0Xd-8mo91AWW2PEA_jOC518GY';
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      const LOCAL_BACKUP_KEY = 'lt_uzsiemimu_kalendorius_v2';
       const DAILY_CAPACITY_MINS = 480;
 
       const MONTHS_NOM = [
@@ -1207,7 +1462,8 @@
         neivykdyta: 'Neįvykdyta'
       };
 
-      // Būsena
+      // Programėlės būsena
+      let currentUser = null;
       let activePage = 'calendar';
       let selectedDate = startOfDay(new Date());
       let currentView = 'month';
@@ -1216,11 +1472,20 @@
       let statusFilter = 'all';
       let clientSearchQuery = '';
       let selectedClientId = null;
-
-      let state = loadState();
-      if (state.clients.length > 0) selectedClientId = state.clients[0].id;
+      let state = { clients: [], sessions: [] };
 
       // DOM elementai
+      const elAuthScreen = document.getElementById('authScreen');
+      const elAppShell = document.getElementById('appShell');
+      const elLoginForm = document.getElementById('loginForm');
+      const elAuthError = document.getElementById('authError');
+      const elBtnLoginSubmit = document.getElementById('btnLoginSubmit');
+      const elSyncStatus = document.getElementById('syncStatus');
+      const elUserEmailLabel = document.getElementById('userEmailLabel');
+      const elUserAvatarLetter = document.getElementById('userAvatarLetter');
+      const elBtnUserMenu = document.getElementById('btnUserMenu');
+      const elUserDropdown = document.getElementById('userDropdown');
+
       const elPeriodTitle = document.getElementById('periodTitle');
       const elCalendarBody = document.getElementById('calendarBody');
       const elSidebarDateLabel = document.getElementById('sidebarDateLabel');
@@ -1272,6 +1537,14 @@
       const elTaskStatus = document.getElementById('taskStatus');
       const elTaskNotes = document.getElementById('taskNotes');
       const elBtnDeleteTaskModal = document.getElementById('btnDeleteTaskModal');
+
+      // Slaptažodžio modalas
+      const elPasswordModal = document.getElementById('passwordModal');
+      const elPasswordForm = document.getElementById('passwordForm');
+      const elPasswordError = document.getElementById('passwordError');
+      const elNewPassword = document.getElementById('newPassword');
+      const elConfirmPassword = document.getElementById('confirmPassword');
+      const elBtnSavePassword = document.getElementById('btnSavePassword');
 
       // Pagalbinės datos ir formato funkcijos (visur YYYY-MM-DD)
       function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
@@ -1338,8 +1611,76 @@
         t.textContent = msg;
         t.classList.add('show');
         clearTimeout(showToast._timer);
-        showToast._timer = setTimeout(() => t.classList.remove('show'), 2600);
+        showToast._timer = setTimeout(() => t.classList.remove('show'), 2800);
       }
+
+      function setSyncStatus(mode, text) {
+        elSyncStatus.className = 'sync-status' + (mode ? ' ' + mode : '');
+        elSyncStatus.textContent = text;
+      }
+
+      // Vartotojo meniu atidarymas / uždarymas
+      function closeUserDropdown() {
+        elUserDropdown.classList.remove('open');
+        elBtnUserMenu.classList.remove('open');
+        elBtnUserMenu.setAttribute('aria-expanded', 'false');
+      }
+
+      elBtnUserMenu.addEventListener('click', e => {
+        e.stopPropagation();
+        const isOpen = elUserDropdown.classList.toggle('open');
+        elBtnUserMenu.classList.toggle('open', isOpen);
+        elBtnUserMenu.setAttribute('aria-expanded', String(isOpen));
+      });
+
+      document.addEventListener('click', e => {
+        if (!document.getElementById('userMenuWrap').contains(e.target)) {
+          closeUserDropdown();
+        }
+      });
+
+      document.getElementById('btnOpenPasswordModal').addEventListener('click', () => {
+        closeUserDropdown();
+        elPasswordForm.reset();
+        elPasswordError.style.display = 'none';
+        elPasswordModal.classList.add('open');
+        elNewPassword.focus();
+      });
+
+      elPasswordForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        elPasswordError.style.display = 'none';
+        const p1 = elNewPassword.value;
+        const p2 = elConfirmPassword.value;
+
+        if (p1.length < 6) {
+          elPasswordError.textContent = 'Slaptažodis turi būti bent 6 simbolių ilgio.';
+          elPasswordError.style.display = 'block';
+          return;
+        }
+        if (p1 !== p2) {
+          elPasswordError.textContent = 'Įvesti slaptažodžiai nesutampa.';
+          elPasswordError.style.display = 'block';
+          return;
+        }
+
+        elBtnSavePassword.disabled = true;
+        elBtnSavePassword.textContent = 'Saugoma...';
+
+        const { error } = await sb.auth.updateUser({ password: p1 });
+
+        elBtnSavePassword.disabled = false;
+        elBtnSavePassword.textContent = 'Išsaugoti slaptažodį';
+
+        if (error) {
+          elPasswordError.textContent = 'Nepavyko pakeisti slaptažodžio: ' + (error.message || 'bandykite dar kartą.');
+          elPasswordError.style.display = 'block';
+          return;
+        }
+
+        closeModal('passwordModal');
+        showToast('Slaptažodis sėkmingai pakeistas');
+      });
 
       // Sinchronizuojame tekstinius YYYY-MM-DD laukus su paslėptais kalendoriaus pasirinkikliais
       function syncDateProxy(targetId) {
@@ -1363,45 +1704,77 @@
         textEl.addEventListener('change', () => syncDateProxy(targetId));
       });
 
-      // Duomenų užkrovimas ir migracija iš v1
-      function loadState() {
-        try {
-          const rawV2 = localStorage.getItem(STORAGE_KEY_V2);
-          if (rawV2) {
-            const parsed = JSON.parse(rawV2);
-            if (parsed && Array.isArray(parsed.sessions) && Array.isArray(parsed.clients)) {
-              return parsed;
-            }
-          }
-          const rawV1 = localStorage.getItem(STORAGE_KEY_V1);
-          if (rawV1) {
-            const oldSessions = JSON.parse(rawV1);
-            if (Array.isArray(oldSessions)) {
-              const clientMap = new Map();
-              oldSessions.forEach(s => {
-                if (s.client && !clientMap.has(s.client.toLowerCase())) {
-                  clientMap.set(s.client.toLowerCase(), {
-                    id: 'c-' + Math.random().toString(36).slice(2, 8),
-                    name: s.client,
-                    phone: '',
-                    email: '',
-                    level: '',
-                    status: 'aktyvus',
-                    description: '',
-                    createdAt: toISODate(new Date()),
-                    tasks: []
-                  });
-                }
-              });
-              return { sessions: oldSessions, clients: Array.from(clientMap.values()) };
-            }
-          }
-        } catch (e) {}
+      // ==================== SUPABASE AUTH IR SINCHRONIZAVIMAS ====================
+      async function initAuth() {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session && session.user) {
+          await onSignedIn(session.user);
+        } else {
+          showAuthScreen();
+        }
 
+        sb.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_IN' && session && session.user) {
+            if (!currentUser || currentUser.id !== session.user.id) {
+              await onSignedIn(session.user);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            showAuthScreen();
+          }
+        });
+      }
+
+      function showAuthScreen() {
+        closeUserDropdown();
+        elAppShell.style.display = 'none';
+        elAuthScreen.style.display = 'flex';
+      }
+
+      async function onSignedIn(user) {
+        currentUser = user;
+        const email = user.email || '';
+        elUserEmailLabel.textContent = email;
+        elUserAvatarLetter.textContent = email ? email.charAt(0).toUpperCase() : '👤';
+        elAuthScreen.style.display = 'none';
+        elAppShell.style.display = 'flex';
+        await loadFromCloud(true);
+      }
+
+      elLoginForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        elAuthError.style.display = 'none';
+        elBtnLoginSubmit.disabled = true;
+        elBtnLoginSubmit.textContent = 'Jungiamasi...';
+
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+        elBtnLoginSubmit.disabled = false;
+        elBtnLoginSubmit.textContent = 'Prisijungti';
+
+        if (error) {
+          elAuthError.textContent = 'Neteisingas el. paštas arba slaptažodis. Patikrinkite duomenis ir bandykite dar kartą.';
+          elAuthError.style.display = 'block';
+          return;
+        }
+        if (data && data.user) {
+          await onSignedIn(data.user);
+        }
+      });
+
+      document.getElementById('btnLogout').addEventListener('click', async () => {
+        closeUserDropdown();
+        await sb.auth.signOut();
+        showToast('Atsijungėte');
+      });
+
+      function getDefaultDemoData() {
         const todayStr = toISODate(new Date());
         const tomorrowStr = toISODate(addDays(new Date(), 1));
         const nextWeekStr = toISODate(addDays(new Date(), 5));
-
         return {
           clients: [
             {
@@ -1411,7 +1784,7 @@
               email: 'austeja@pavyzdys.lt',
               level: 'Anglų k. B2',
               status: 'aktyvus',
-              description: 'Ruošiasi tarptautiniam egzaminui. Stipri gramatika, pagrindinis tikslas – laisvesnis kalbėjimas ir akademinis rašymas.',
+              description: 'Ruošiasi tarptautiniam egzaminui. Stipri gramatika, pagrindinis tikslas – laisvesnis kalbėjimas.',
               createdAt: todayStr,
               tasks: [
                 {
@@ -1421,34 +1794,6 @@
                   dueDate: nextWeekStr,
                   status: 'skirta',
                   notes: 'Panaudoti bent 5 naujus jungiamuosius žodžius.'
-                },
-                {
-                  id: 't-demo-2',
-                  title: 'Atlikti klausymo testą Nr. 4 ir pasižymėti nežinomus žodžius',
-                  assignedDate: toISODate(addDays(new Date(), -4)),
-                  dueDate: todayStr,
-                  status: 'atlikta',
-                  notes: 'Puikiai atlikta (92% teisingų atsakymų).'
-                }
-              ]
-            },
-            {
-              id: 'c-demo-2',
-              name: 'Mantas Petraitis',
-              phone: '+370 698 11223',
-              email: 'mantas@pavyzdys.lt',
-              level: 'Pradedantysis (A1)',
-              status: 'aktyvus',
-              description: 'Mokosi darbo reikalams. Pageidauja daugiau praktinių dialogų.',
-              createdAt: todayStr,
-              tasks: [
-                {
-                  id: 't-demo-3',
-                  title: 'Išmokti 20 pagrindinių prisistatymo frazių',
-                  assignedDate: todayStr,
-                  dueDate: tomorrowStr,
-                  status: 'skirta',
-                  notes: ''
                 }
               ]
             }
@@ -1466,32 +1811,99 @@
             },
             {
               id: 'demo-2',
-              client: 'Mantas Petraitis',
-              topic: 'Konsultacija ir lygio nustatymas',
-              date: todayStr,
-              startTime: '14:30',
-              duration: 45,
-              status: 'suplanuota',
-              notes: ''
-            },
-            {
-              id: 'demo-3',
               client: 'Austėja Kazlauskaitė',
               topic: 'Esė analizė ir kalbėjimo praktika',
               date: tomorrowStr,
               startTime: '18:00',
               duration: 90,
               status: 'suplanuota',
-              notes: 'Nuotolinis užsiėmimas'
+              notes: ''
             }
           ]
         };
       }
 
-      function saveState() {
-        localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(state));
+      async function loadFromCloud(allowLocalMigration = false) {
+        if (!currentUser) return;
+        setSyncStatus('saving', '⏳ Kraunama...');
+        try {
+          const { data, error } = await sb
+            .from('app_data')
+            .select('data')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          if (data && data.data && Array.isArray(data.data.clients) && Array.isArray(data.data.sessions)) {
+            state = data.data;
+          } else {
+            let migrated = null;
+            if (allowLocalMigration) {
+              try {
+                const rawLocal = localStorage.getItem(LOCAL_BACKUP_KEY);
+                if (rawLocal) {
+                  const parsed = JSON.parse(rawLocal);
+                  if (parsed && Array.isArray(parsed.clients) && Array.isArray(parsed.sessions)) {
+                    migrated = parsed;
+                  }
+                }
+              } catch (e) {}
+            }
+            state = migrated || getDefaultDemoData();
+            await saveState(true);
+            if (migrated) showToast('Ankstesni duomenys perkelti į debesį');
+          }
+
+          if (state.clients.length > 0 && !state.clients.some(c => c.id === selectedClientId)) {
+            selectedClientId = state.clients[0].id;
+          }
+          setSyncStatus('', '☁️ Sinchronizuota');
+          renderAll();
+        } catch (err) {
+          console.error('Supabase load error:', err);
+          setSyncStatus('error', '⚠️ Ryšio klaida');
+          showToast('Nepavyko užkrauti duomenų iš debesies');
+        }
       }
 
+      async function saveState(silent = false) {
+        if (!currentUser) return;
+        try {
+          localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(state));
+        } catch (e) {}
+
+        setSyncStatus('saving', '⏳ Saugoma...');
+        try {
+          const { error } = await sb
+            .from('app_data')
+            .upsert({
+              user_id: currentUser.id,
+              data: state,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+
+          if (error) throw error;
+          setSyncStatus('', '☁️ Sinchronizuota');
+        } catch (err) {
+          console.error('Supabase save error:', err);
+          setSyncStatus('error', '⚠️ Nepavyko išsaugoti');
+          if (!silent) showToast('Klaida saugant į debesį. Patikrinkite interneto ryšį.');
+        }
+      }
+
+      document.getElementById('btnManualSync').addEventListener('click', async () => {
+        await loadFromCloud(false);
+        showToast('Duomenys atnaujinti');
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && currentUser) {
+          loadFromCloud(false);
+        }
+      });
+
+      // ==================== BENDROS FUNKCIJOS ====================
       function updateClientsDatalist() {
         elClientsCountBadge.textContent = state.clients.length;
         elClientsDatalist.innerHTML = state.clients
@@ -2062,12 +2474,12 @@
         elConflictWarning.style.display = hasConflict ? 'block' : 'none';
       }
 
-      function deleteSession(id) {
+      async function deleteSession(id) {
         if (!confirm('Ar tikrai norite ištrinti šį užsiėmimą?')) return;
         state.sessions = state.sessions.filter(s => s.id !== id);
-        saveState();
         closeModal('sessionModal');
         renderAll();
+        await saveState();
         showToast('Užsiėmimas ištrintas');
       }
 
@@ -2095,7 +2507,7 @@
         elClientName.focus();
       }
 
-      function deleteClient(id) {
+      async function deleteClient(id) {
         const c = state.clients.find(x => x.id === id);
         if (!c) return;
         if (!confirm(`Ar tikrai norite ištrinti klientą „${c.name}“ ir jo užduočių istoriją?`)) return;
@@ -2103,9 +2515,9 @@
         if (selectedClientId === id) {
           selectedClientId = state.clients.length > 0 ? state.clients[0].id : null;
         }
-        saveState();
         closeModal('clientModal');
         renderAll();
+        await saveState();
         showToast('Klientas ištrintas');
       }
 
@@ -2139,25 +2551,25 @@
         elTaskTitle.focus();
       }
 
-      function toggleTaskStatus(clientId, taskId) {
+      async function toggleTaskStatus(clientId, taskId) {
         const client = state.clients.find(c => c.id === clientId);
         if (!client) return;
         const task = (client.tasks || []).find(t => t.id === taskId);
         if (!task) return;
         task.status = task.status === 'atlikta' ? 'skirta' : 'atlikta';
-        saveState();
         renderClientsPage();
+        await saveState();
         showToast(task.status === 'atlikta' ? 'Užduotis pažymėta kaip atlikta' : 'Užduotis grąžinta į vykdomas');
       }
 
-      function deleteTask(clientId, taskId) {
+      async function deleteTask(clientId, taskId) {
         if (!confirm('Ar tikrai norite ištrinti šią užduotį?')) return;
         const client = state.clients.find(c => c.id === clientId);
         if (!client) return;
         client.tasks = (client.tasks || []).filter(t => t.id !== taskId);
-        saveState();
         closeModal('taskModal');
         renderClientsPage();
+        await saveState();
         showToast('Užduotis ištrinta');
       }
 
@@ -2184,7 +2596,7 @@
         btn.addEventListener('click', () => closeModal(btn.dataset.close));
       });
 
-      [elSessionModal, elClientModal, elTaskModal].forEach(backdrop => {
+      [elSessionModal, elClientModal, elTaskModal, elPasswordModal].forEach(backdrop => {
         backdrop.addEventListener('click', e => {
           if (e.target === backdrop) backdrop.classList.remove('open');
         });
@@ -2211,7 +2623,7 @@
       });
 
       // Užsiėmimo išsaugojimas
-      elSessionForm.addEventListener('submit', e => {
+      elSessionForm.addEventListener('submit', async e => {
         e.preventDefault();
         const dateVal = elInputDate.value.trim();
         if (!isValidISODate(dateVal)) {
@@ -2257,13 +2669,13 @@
         }
 
         selectedDate = parseISODate(record.date);
-        saveState();
         closeModal('sessionModal');
         renderAll();
+        await saveState();
       });
 
       // Kliento išsaugojimas
-      elClientForm.addEventListener('submit', e => {
+      elClientForm.addEventListener('submit', async e => {
         e.preventDefault();
         const id = elClientId.value;
         const newName = elClientName.value.trim();
@@ -2304,13 +2716,13 @@
           showToast('Naujas klientas sukurtas');
         }
 
-        saveState();
         closeModal('clientModal');
         renderAll();
+        await saveState();
       });
 
       // Užduoties išsaugojimas
-      elTaskForm.addEventListener('submit', e => {
+      elTaskForm.addEventListener('submit', async e => {
         e.preventDefault();
         const assignedVal = elTaskAssignedDate.value.trim();
         const dueVal = elTaskDueDate.value.trim();
@@ -2349,9 +2761,9 @@
           showToast('Užduotis paskirta klientui');
         }
 
-        saveState();
         closeModal('taskModal');
         renderClientsPage();
+        await saveState();
       });
 
       // Kalendoriaus navigacija
@@ -2415,55 +2827,8 @@
         renderClientsPage();
       });
 
-      // Eksportas į JSON
-      document.getElementById('btnExport').addEventListener('click', () => {
-        const payload = {
-          version: 2,
-          exportedAt: new Date().toISOString(),
-          clients: state.clients,
-          sessions: state.sessions
-        };
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `kalendorius-ir-klientai-${toISODate(new Date())}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('Visi duomenys eksportuoti (JSON)');
-      });
-
-      // Importas iš JSON
-      const fileImport = document.getElementById('fileImport');
-      document.getElementById('btnImport').addEventListener('click', () => fileImport.click());
-      fileImport.addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-          try {
-            const parsed = JSON.parse(ev.target.result);
-            if (Array.isArray(parsed)) {
-              state.sessions = parsed.filter(x => x && x.client && x.date && x.startTime);
-            } else if (parsed && Array.isArray(parsed.sessions) && Array.isArray(parsed.clients)) {
-              state.sessions = parsed.sessions;
-              state.clients = parsed.clients;
-            } else {
-              throw new Error('Netinkamas formatas');
-            }
-            if (state.clients.length > 0) selectedClientId = state.clients[0].id;
-            saveState();
-            renderAll();
-            showToast(`Importuota: ${state.clients.length} kl., ${state.sessions.length} užs.`);
-          } catch (err) {
-            alert('Nepavyko nuskaityti JSON failo. Patikrinkite failo formatą.');
-          }
-          fileImport.value = '';
-        };
-        reader.readAsText(file);
-      });
-
-      renderAll();
+      // Paleidimas
+      initAuth();
     })();
   </script>
 </body>
