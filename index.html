@@ -783,8 +783,8 @@
 
     /* Būsenų spalvos */
     .st-suplanuota { border-left-color: #2563eb; background: #eff6ff; color: #1e3a8a; }
-    .st-patvirtinta { border-left-color: #16a34a; background: #f0fdf4; color: #166534; }
-    .st-ivyko { border-left-color: #64748b; background: #f1f5f9; color: #334155; }
+    .st-patvirtinta { border-left-color: #2563eb; background: #eff6ff; color: #1e3a8a; }
+    .st-ivyko { border-left-color: #16a34a; background: #f0fdf4; color: #166534; }
     .st-atsaukta { border-left-color: #dc2626; background: #fef2f2; color: #991b1b; text-decoration: line-through; opacity: 0.8; }
 
     /* SAVAITĖS RODINYS */
@@ -1668,6 +1668,26 @@
       gap: 8px;
     }
 
+    .history-month-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 8px 0 2px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .history-month-divider::before,
+    .history-month-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #cbd5e1;
+    }
+    .history-month-divider:first-child {
+      margin-top: 0;
+    }
+
     .history-row {
       display: flex;
       justify-content: space-between;
@@ -1843,6 +1863,48 @@
       max-height: 66vh;
       border-radius: 6px;
       object-fit: contain;
+    }
+
+    /* Atšaukta/Neatvyko pop-up pranešimas užvedus pelytę */
+    .cancel-tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .cancel-tooltip-box {
+      display: none;
+      position: fixed;
+      z-index: 80;
+      min-width: 210px;
+      max-width: 310px;
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      padding: 9px 12px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.28);
+      font-size: 12px;
+      line-height: 1.45;
+      pointer-events: none;
+    }
+    .cancel-tooltip-box.open {
+      display: block;
+    }
+    .cancel-tooltip-title {
+      font-weight: 700;
+      font-size: 11.5px;
+      color: #fca5a5;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .cancel-tooltip-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin: 0;
+      padding: 0;
     }
 
     /* Pranešimas (Toast) */
@@ -2502,6 +2564,7 @@
   </div>
 
   <input type="file" id="clientDirectFileInput" multiple style="display:none" />
+  <div class="cancel-tooltip-box" id="cancelHoverTooltip" role="tooltip"></div>
   <div class="toast" id="toast"></div>
 
   <script>
@@ -4205,6 +4268,7 @@
               cancelled: 0,
               completedMins: 0,
               activeMins: 0,
+              cancelledEntries: [],
               months: new Map()
             });
           }
@@ -4244,7 +4308,8 @@
               upcoming: 0,
               cancelled: 0,
               completedMins: 0,
-              activeMins: 0
+              activeMins: 0,
+              cancelledEntries: []
             });
           }
           const mRec = rec.months.get(mKey);
@@ -4263,6 +4328,13 @@
           } else if (s.status === 'atsaukta') {
             rec.cancelled++;
             mRec.cancelled++;
+            const entryObj = {
+              date: s.date || '—',
+              time: s.startTime || '',
+              client: s.client || '—'
+            };
+            rec.cancelledEntries.push(entryObj);
+            mRec.cancelledEntries.push(entryObj);
           } else {
             rec.upcoming++;
             rec.activeMins += dur;
@@ -4324,7 +4396,9 @@
                       <td><strong>${r.total}</strong></td>
                       <td><span class="badge badge-green">${r.completed}</span></td>
                       <td><span class="badge ${upcomingBadgeClass}" style="${upcomingBadgeStyle}">${r.upcoming}</span></td>
-                      <td>${r.cancelled > 0 ? `<span class="badge badge-red">${r.cancelled}</span>` : '0'}</td>
+                      <td>${r.cancelled > 0
+                        ? `<span class="badge badge-red cancel-hover-trigger" data-cancel-kind="client" data-cancel-title="${escapeHtml(r.name + ' – neatvykta / atšaukta')}" data-cancel-items="${escapeHtml(JSON.stringify([...r.cancelledEntries].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))))}">${r.cancelled}</span>`
+                        : '0'}</td>
                       <td>${formatDuration(r.completedMins)} / ${formatDuration(r.activeMins)}</td>
                       <td>
                         <div class="mini-bar-wrap">
@@ -4369,7 +4443,9 @@
                                         <td><strong>${m.total}</strong></td>
                                         <td><span class="badge badge-green">${m.completed}</span></td>
                                         <td><span class="badge badge-blue">${m.upcoming}</span></td>
-                                        <td>${m.cancelled > 0 ? `<span class="badge badge-red">${m.cancelled}</span>` : '0'}</td>
+                                        <td>${m.cancelled > 0
+                                          ? `<span class="badge badge-red cancel-hover-trigger" data-cancel-kind="client" data-cancel-title="${escapeHtml(r.name + ' (' + m.monthKey + ')')}" data-cancel-items="${escapeHtml(JSON.stringify([...m.cancelledEntries].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))))}">${m.cancelled}</span>`
+                                          : '0'}</td>
                                         <td>${formatDuration(m.completedMins)} / ${formatDuration(m.activeMins)}</td>
                                         <td>
                                           <div class="mini-bar-wrap">
@@ -4447,7 +4523,11 @@
                 });
                 const tot = list.length;
                 const comp = list.filter(s => s.status === 'ivyko').length;
-                const canc = list.filter(s => s.status === 'atsaukta').length;
+                const cancList = list.filter(s => s.status === 'atsaukta');
+                const canc = cancList.length;
+                const cancPayload = cancList
+                  .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
+                  .map(s => ({ date: s.date || '—', time: s.startTime || '', client: s.client || '—' }));
                 const upc = tot - comp - canc;
                 const pct = tot > 0 ? Math.round((comp / tot) * 100) : 0;
                 const fillClass = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
@@ -4461,7 +4541,9 @@
                     <td>${tot}</td>
                     <td><span class="badge badge-green">${comp}</span></td>
                     <td><span class="badge badge-blue">${upc}</span></td>
-                    <td>${canc > 0 ? `<span class="badge badge-red">${canc}</span>` : '0'}</td>
+                    <td>${canc > 0
+                      ? `<span class="badge badge-red cancel-hover-trigger" data-cancel-kind="month" data-cancel-title="${escapeHtml(label + ' – atšaukta / neatvyko')}" data-cancel-items="${escapeHtml(JSON.stringify(cancPayload))}">${canc}</span>`
+                      : '0'}</td>
                     <td>${formatDuration(mins)}</td>
                     <td>
                       <div class="mini-bar-wrap">
@@ -4483,7 +4565,77 @@
             renderStatsPage();
           });
         });
+
+        bindCancelHoverPopups();
       }
+
+      const elCancelHoverTooltip = document.getElementById('cancelHoverTooltip');
+
+      function positionCancelTooltip(targetEl) {
+        if (!elCancelHoverTooltip || !targetEl) return;
+        const rect = targetEl.getBoundingClientRect();
+        const pad = 10;
+        let left = rect.left + rect.width / 2 - elCancelHoverTooltip.offsetWidth / 2;
+        if (left < pad) left = pad;
+        if (left + elCancelHoverTooltip.offsetWidth > window.innerWidth - pad) {
+          left = window.innerWidth - elCancelHoverTooltip.offsetWidth - pad;
+        }
+        let top = rect.top - elCancelHoverTooltip.offsetHeight - 8;
+        if (top < pad) {
+          top = rect.bottom + 8;
+        }
+        elCancelHoverTooltip.style.left = `${Math.round(left)}px`;
+        elCancelHoverTooltip.style.top = `${Math.round(top)}px`;
+      }
+
+      function hideCancelTooltip() {
+        if (elCancelHoverTooltip) {
+          elCancelHoverTooltip.classList.remove('open');
+        }
+      }
+
+      function bindCancelHoverPopups() {
+        const statsPageEl = document.getElementById('pageStats');
+        if (!statsPageEl || !elCancelHoverTooltip) return;
+        statsPageEl.querySelectorAll('.cancel-hover-trigger').forEach(badge => {
+          badge.addEventListener('mouseenter', e => {
+            e.stopPropagation();
+            const kind = badge.dataset.cancelKind;
+            const title = badge.dataset.cancelTitle || '';
+            let items = [];
+            try {
+              items = JSON.parse(badge.dataset.cancelItems || '[]');
+            } catch (err) {
+              items = [];
+            }
+            if (!items.length) return;
+
+            const liHtml = items.map(it => {
+              if (kind === 'month') {
+                const tPart = it.time ? ` (${escapeHtml(it.time)})` : '';
+                return `<li>• <strong>${escapeHtml(it.date)}</strong>${tPart} – ${escapeHtml(it.client)}</li>`;
+              } else {
+                const tPart = it.time ? ` (${escapeHtml(it.time)})` : '';
+                return `<li>• <strong>${escapeHtml(it.date)}</strong>${tPart}</li>`;
+              }
+            }).join('');
+
+            elCancelHoverTooltip.innerHTML = `
+              <div class="cancel-tooltip-title">${escapeHtml(title)}</div>
+              <ul class="cancel-tooltip-list">${liHtml}</ul>
+            `;
+            elCancelHoverTooltip.classList.add('open');
+            positionCancelTooltip(badge);
+          });
+
+          badge.addEventListener('mouseleave', () => {
+            hideCancelTooltip();
+          });
+        });
+      }
+
+      document.addEventListener('scroll', hideCancelTooltip, true);
+      window.addEventListener('resize', hideCancelTooltip);
 
       // ==================== KLIENTŲ SKILTIES LOGIKA ====================
       function renderClientsPage() {
@@ -4666,16 +4818,25 @@
             </div>
             ${clientSessions.length === 0 ? `
               <div class="empty-state">Su šiuo klientu suplanuotų užsiėmimų kalendoriuje kol kas nėra.</div>
-            ` : `<div class="history-list">` + clientSessions.map(s => {
+            ` : `<div class="history-list">` + clientSessions.map((s, idx) => {
               const end = minsToTime(timeToMins(s.startTime) + Number(s.duration));
               const attCount = (s.attachments || []).length;
+              const curMonthKey = (s.date && s.date.length >= 7) ? s.date.slice(0, 7) : '';
+              const prevMonthKey = idx > 0 && clientSessions[idx - 1].date && clientSessions[idx - 1].date.length >= 7
+                ? clientSessions[idx - 1].date.slice(0, 7)
+                : '';
+              const showDivider = idx > 0 && curMonthKey && curMonthKey !== prevMonthKey;
+              const pillClass = s.status === 'ivyko'
+                ? 'badge-green'
+                : (s.status === 'atsaukta' ? 'badge-red' : 'badge-blue');
               return `
+                ${showDivider ? `<div class="history-month-divider"><span>${escapeHtml(formatMonthLabel(curMonthKey))}</span></div>` : ''}
                 <div class="history-row st-${s.status}" data-edit-session="${s.id}">
                   <div>
                     <strong>${escapeHtml(s.date)}</strong> · ${escapeHtml(s.startTime)}–${end} — ${escapeHtml(s.topic)}
                     ${attCount > 0 ? `<span class="badge badge-blue" style="margin-left:6px;">📎 ${attCount}</span>` : ''}
                   </div>
-                  <span class="badge">${STATUS_LABELS[s.status]}</span>
+                  <span class="badge ${pillClass}">${STATUS_LABELS[s.status]}</span>
                 </div>
               `;
             }).join('') + `</div>`}
