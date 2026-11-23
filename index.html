@@ -889,6 +889,66 @@
       cursor: pointer;
     }
 
+    .plan-mode-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+    }
+    .plan-mode-toggle input {
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .plan-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+    }
+    .plan-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    .plan-table th {
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .plan-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .plan-table tr:last-child td { border-bottom: none; }
+    .plan-table tbody tr.plan-row {
+      cursor: pointer;
+      transition: background 0.12s ease;
+    }
+    .plan-table tbody tr.plan-row:hover {
+      background: #f8fafc;
+    }
+    .plan-table tbody tr.plan-row.st-atsaukta td:not(:last-child) {
+      text-decoration: line-through;
+      opacity: 0.78;
+    }
+
     /* DEŠINĖS PUSĖS SKYDAS */
     .sidebar-header {
       padding: 12px 14px;
@@ -2003,6 +2063,10 @@
               <span>🔑</span>
               <span>Keisti slaptažodį</span>
             </button>
+            <button type="button" class="user-dropdown-item" id="btnToggleExtraHours" role="menuitem">
+              <span>🕒</span>
+              <span id="btnToggleExtraHoursLabel">Rodyti 7–13 ir 21 val.</span>
+            </button>
             <button type="button" class="user-dropdown-item danger" id="btnLogout" role="menuitem">
               <span>🚪</span>
               <span>Atsijungti</span>
@@ -2026,6 +2090,10 @@
               </div>
               <div class="view-group">
                 <button class="btn view-btn" data-view="day">Diena</button>
+                <label class="plan-mode-toggle" title="Perjungti į planavimo lentelės vaizdą (Diena / Savaitė / Mėnuo)">
+                  <input type="checkbox" id="planModeCheckbox" />
+                  <span>Planavimas</span>
+                </label>
                 <button class="btn view-btn" data-view="week">Savaitė</button>
                 <button class="btn view-btn active" data-view="month">Mėnuo</button>
               </div>
@@ -2630,6 +2698,37 @@
       let copyCalMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       let expandedStatsClients = new Set();
       let currentView = 'month';
+      let planViewMode = false;
+      let showExtraHoursInViews = false;
+      const EXTRA_HOURS_PREF_KEY = 'lt_kalendorius_show_extra_hours';
+      try {
+        const savedExtra = localStorage.getItem(EXTRA_HOURS_PREF_KEY);
+        if (savedExtra === 'true') showExtraHoursInViews = true;
+        else if (savedExtra === 'false') showExtraHoursInViews = false;
+      } catch (e) {}
+
+      function getVisibleTimelineHours(dateStr) {
+        // Bazinės valandos: 14:00–20:00 (14..20), o įjungus: prideda 7:00–13:00 (7..13) ir 21:00 (21)
+        const baseHours = [14, 15, 16, 17, 18, 19, 20];
+        const extraHours = [7, 8, 9, 10, 11, 12, 13, 21];
+        const set = new Set(showExtraHoursInViews ? [...extraHours, ...baseHours] : baseHours);
+        // Jei kurią nors dieną jau yra suplanuotas užsiėmimas kitu metu, vis tiek jį parodome, kad įrašas neprapultų
+        if (dateStr) {
+          state.sessions.filter(s => s.date === dateStr).forEach(s => {
+            const h = Number(String(s.startTime || '').split(':')[0]);
+            if (!Number.isNaN(h)) set.add(h);
+          });
+        }
+        return Array.from(set).sort((a, b) => a - b);
+      }
+
+      function updateExtraHoursMenuLabel() {
+        const lbl = document.getElementById('btnToggleExtraHoursLabel');
+        if (!lbl) return;
+        lbl.textContent = showExtraHoursInViews
+          ? 'Slėpti 7–13 ir 21 val.'
+          : 'Rodyti 7–13 ir 21 val.';
+      }
       let sidebarTab = 'schedule';
       let searchQuery = '';
       let statusFilter = 'all';
@@ -3807,10 +3906,109 @@
       // ==================== KALENDORIAUS LOGIKA ====================
       function renderCalendarPage() {
         updateHeaderTitle();
-        if (currentView === 'month') renderMonthView();
-        else if (currentView === 'week') renderWeekView();
-        else renderDayView();
+        if (planViewMode) {
+          renderPlanningTableView();
+        } else if (currentView === 'month') {
+          renderMonthView();
+        } else if (currentView === 'week') {
+          renderWeekView();
+        } else {
+          renderDayView();
+        }
         renderSidebar();
+      }
+
+      function renderPlanningTableView() {
+        const filtered = getFilteredSessions();
+        let sessions = [];
+        let scopeNote = '';
+
+        if (currentView === 'day') {
+          const dStr = toISODate(selectedDate);
+          sessions = getSessionsByDate(dStr, filtered);
+          scopeNote = `Dienos (${dStr}) planavimas`;
+        } else if (currentView === 'week') {
+          const mon = getMonday(selectedDate);
+          const sun = addDays(mon, 6);
+          const monStr = toISODate(mon);
+          const sunStr = toISODate(sun);
+          sessions = filtered
+            .filter(s => s.date >= monStr && s.date <= sunStr)
+            .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+          scopeNote = `Savaitės (${monStr} – ${sunStr}) planavimas`;
+        } else {
+          const prefix = toMonthPrefix(selectedDate);
+          sessions = filtered
+            .filter(s => s.date && s.date.startsWith(prefix))
+            .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+          scopeNote = `${formatMonthLabel(prefix)} planavimas`;
+        }
+
+        const showDateCol = currentView === 'week' || currentView === 'month';
+
+        let html = `
+          <div class="day-occupancy-banner">
+            <div><strong>${escapeHtml(scopeNote)}:</strong> iš viso įrašų – <strong>${sessions.length}</strong></div>
+            <button class="btn btn-primary btn-sm" id="btnPlanAddSession">+ Pridėti įrašą</button>
+          </div>
+        `;
+
+        if (sessions.length === 0) {
+          html += `<div class="empty-state">Šiam pasirinktam laikotarpiui ir filtrams įrašų nėra.</div>`;
+          elCalendarBody.innerHTML = html;
+          document.getElementById('btnPlanAddSession').addEventListener('click', () => {
+            openSessionModal(null, toISODate(selectedDate), '09:00');
+          });
+          return;
+        }
+
+        html += `
+          <div class="plan-table-wrap">
+            <table class="plan-table">
+              <thead>
+                <tr>
+                  ${showDateCol ? '<th>Data</th>' : ''}
+                  <th>Laikas</th>
+                  <th>Klientas</th>
+                  <th>Tema</th>
+                  <th>Pastabos</th>
+                  <th style="text-align:right;">Būsena</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${sessions.map(s => {
+                  const end = minsToTime(timeToMins(s.startTime) + Number(s.duration || 30));
+                  const timeStr = `${s.startTime}–${end}`;
+                  const pillClass = s.status === 'ivyko'
+                    ? 'badge-green'
+                    : (s.status === 'atsaukta' ? 'badge-red' : 'badge-blue');
+                  return `
+                    <tr class="plan-row st-${s.status}" data-plan-session-id="${escapeHtml(s.id)}">
+                      ${showDateCol ? `<td><strong>${escapeHtml(s.date)}</strong></td>` : ''}
+                      <td style="white-space:nowrap;"><strong>${escapeHtml(timeStr)}</strong></td>
+                      <td><strong>${escapeHtml(s.client)}</strong></td>
+                      <td>${escapeHtml(s.topic || '—')}</td>
+                      <td style="color:var(--muted);">${escapeHtml(s.notes || '—')}</td>
+                      <td style="text-align:right; white-space:nowrap;">
+                        <span class="badge ${pillClass}">${escapeHtml(STATUS_LABELS[s.status] || s.status)}</span>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        elCalendarBody.innerHTML = html;
+
+        document.getElementById('btnPlanAddSession').addEventListener('click', () => {
+          openSessionModal(null, toISODate(selectedDate), '09:00');
+        });
+
+        elCalendarBody.querySelectorAll('[data-plan-session-id]').forEach(row => {
+          row.addEventListener('click', () => openSessionModal(row.dataset.planSessionId));
+        });
       }
 
       function updateHeaderTitle() {
@@ -3927,7 +4125,14 @@
           </div>`;
         });
 
-        for (let hour = 7; hour <= 21; hour++) {
+        const weekDatesSet = days.map(d => toISODate(d));
+        const weekHoursSet = new Set(getVisibleTimelineHours());
+        state.sessions.filter(s => weekDatesSet.includes(s.date)).forEach(s => {
+          const h = Number(String(s.startTime || '').split(':')[0]);
+          if (!Number.isNaN(h)) weekHoursSet.add(h);
+        });
+        const weekHours = Array.from(weekHoursSet).sort((a, b) => a - b);
+        for (const hour of weekHours) {
           const hStr = String(hour).padStart(2, '0') + ':00';
           html += `<div class="week-time-cell">${hStr}</div>`;
           days.forEach(d => {
@@ -3998,7 +4203,8 @@
           <div class="day-timeline">
         `;
 
-        for (let hour = 7; hour <= 21; hour++) {
+        const dayHours = getVisibleTimelineHours(dStr);
+        for (const hour of dayHours) {
           const hStr = String(hour).padStart(2, '0') + ':00';
           const slotSessions = daySessions.filter(s => Number(s.startTime.split(':')[0]) === hour);
 
@@ -5396,6 +5602,14 @@
         renderStatsPage();
       });
 
+      const elPlanModeCheckbox = document.getElementById('planModeCheckbox');
+      if (elPlanModeCheckbox) {
+        elPlanModeCheckbox.addEventListener('change', e => {
+          planViewMode = e.target.checked;
+          renderCalendarPage();
+        });
+      }
+
       document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
@@ -6066,7 +6280,23 @@
         showToast(`Nukopijuota užsiėmimų: ${createdCount} (į ${validDates.length} d.)`);
       });
 
-            // Paleidimas
+            updateExtraHoursMenuLabel();
+      document.getElementById('btnToggleExtraHours').addEventListener('click', () => {
+        showExtraHoursInViews = !showExtraHoursInViews;
+        try {
+          localStorage.setItem(EXTRA_HOURS_PREF_KEY, String(showExtraHoursInViews));
+        } catch (e) {}
+        updateExtraHoursMenuLabel();
+        closeUserDropdown();
+        if (activePage === 'calendar' && (currentView === 'week' || currentView === 'day')) {
+          renderCalendarPage();
+        }
+        showToast(showExtraHoursInViews
+          ? 'Įjungtos 7–13 ir 21 val. savaitės ir dienos rodyme'
+          : 'Paslėptos 7–13 ir 21 val. savaitės ir dienos rodyme');
+      });
+
+      // Paleidimas
       initAuth();
     })();
   </script>
