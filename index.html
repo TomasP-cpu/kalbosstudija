@@ -458,6 +458,91 @@
       z-index: 2;
     }
 
+    /* 24 val. laiko pasirinkiklis */
+    .time-picker-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .time-picker-wrap .form-input {
+      padding-right: 38px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .time-picker-btn {
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 30px;
+      height: 30px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      color: var(--muted);
+    }
+    .time-picker-btn:hover { background: #f1f5f9; color: var(--text); }
+
+    .time-popover {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+      padding: 8px;
+      display: none;
+      gap: 8px;
+      z-index: 60;
+      width: 164px;
+    }
+    .time-popover.open { display: flex; }
+
+    .time-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-height: 200px;
+      overflow-y: auto;
+      gap: 2px;
+    }
+
+    .time-col-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-align: center;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+      position: sticky;
+      top: 0;
+      background: #fff;
+    }
+
+    .time-opt {
+      border: none;
+      background: transparent;
+      padding: 5px 4px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+    }
+    .time-opt:hover { background: #f1f5f9; }
+    .time-opt.active { background: var(--primary); color: #fff; }
+
     /* Kalendoriaus turinys */
     .cal-body {
       padding: 14px 16px 16px;
@@ -747,7 +832,7 @@
     .badge-amber { background: #fef3c7; color: #92400e; }
 
     .schedule-client { font-size: 14px; font-weight: 700; }
-    .schedule-topic { font-size: 13px; color: var(--muted); }
+    .schedule-topic { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .schedule-notes { font-size: 12px; color: var(--muted); background: #f8fafc; padding: 6px 8px; border-radius: 6px; margin-top: 4px; }
     .schedule-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 
@@ -910,6 +995,193 @@
       color: #1e293b;
     }
 
+    /* NUOTRAUKŲ IR FAILŲ PRISEGIMAS BEI GALERIJA */
+    .attach-dropzone {
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #f8fafc;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .attach-dropzone:hover, .attach-dropzone.dragover {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .modal-attachments-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .att-thumb-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .att-thumb-preview {
+      height: 78px;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .att-thumb-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .att-file-icon {
+      font-size: 28px;
+    }
+
+    .att-thumb-info {
+      padding: 5px 7px;
+      font-size: 11.5px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .att-thumb-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+    }
+    .att-thumb-size {
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
+    .att-remove-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(15, 23, 42, 0.72);
+      color: #fff;
+      font-size: 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .att-remove-btn:hover { background: var(--danger); }
+
+    /* Kliento kortelės failų galerija */
+    .client-files-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      gap: 12px;
+    }
+
+    .client-file-card {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #fff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .client-file-card:hover {
+      border-color: #94a3b8;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+
+    .client-file-media {
+      height: 128px;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+    }
+    .client-file-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .client-file-doc-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #334155;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .client-file-body {
+      padding: 9px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+    }
+    .client-file-title {
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+    }
+    .client-file-source {
+      font-size: 11.5px;
+      color: var(--primary);
+      background: var(--primary-soft);
+      padding: 2px 7px;
+      border-radius: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .client-file-source:hover { text-decoration: underline; }
+    .client-file-source.direct {
+      color: var(--muted);
+      background: #f1f5f9;
+      cursor: default;
+    }
+    .client-file-source.direct:hover { text-decoration: none; }
+
+    .client-file-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      margin-top: auto;
+      padding-top: 6px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
     /* Užduočių istorija */
     .task-item {
       border: 1px solid var(--border);
@@ -982,7 +1254,7 @@
       background: #fff;
       border-radius: 12px;
       width: 100%;
-      max-width: 500px;
+      max-width: 520px;
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
       overflow: hidden;
       max-height: 92vh;
@@ -1042,6 +1314,23 @@
       background: #f8fafc;
     }
 
+    /* Nuotraukos peržiūros (Lightbox) modalas */
+    .lightbox-img-wrap {
+      background: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-height: 70vh;
+      overflow: auto;
+      padding: 12px;
+    }
+    .lightbox-img-wrap img {
+      max-width: 100%;
+      max-height: 66vh;
+      border-radius: 6px;
+      object-fit: contain;
+    }
+
     /* Pranešimas (Toast) */
     .toast {
       position: fixed;
@@ -1055,7 +1344,7 @@
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s;
-      z-index: 60;
+      z-index: 70;
     }
     .toast.show { opacity: 1; }
 
@@ -1228,14 +1517,21 @@
             <div class="form-group">
               <label class="form-label" for="inputDate">Data (MMMM-MM-DD) *</label>
               <div class="date-picker-wrap">
-                <input type="text" id="inputDate" class="form-input" required placeholder="2000-12-31" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" />
+                <input type="text" id="inputDate" class="form-input" required placeholder="2026-11-23" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" />
                 <span class="date-picker-btn" aria-hidden="true">📅</span>
                 <input type="date" class="native-date-proxy" data-target="inputDate" tabindex="-1" title="Pasirinkti datą" />
               </div>
             </div>
             <div class="form-group">
               <label class="form-label" for="inputTime">Pradžios laikas (24 val.) *</label>
-              <input type="time" id="inputTime" class="form-input" required value="09:00" />
+              <div class="time-picker-wrap" id="timePickerWrap">
+                <input type="text" id="inputTime" class="form-input" required value="09:00" placeholder="14:30" maxlength="5" inputmode="numeric" pattern="([01]\d|2[0-3]):[0-5]\d" autocomplete="off" />
+                <button type="button" class="time-picker-btn" id="btnToggleTimePopover" title="Pasirinkti laiką (24 val.)">🕒</button>
+                <div class="time-popover" id="timePickerPopover">
+                  <div class="time-col" id="timeHoursCol"></div>
+                  <div class="time-col" id="timeMinsCol"></div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="form-row">
@@ -1263,6 +1559,18 @@
             <label class="form-label" for="inputNotes">Pastabos</label>
             <textarea id="inputNotes" class="form-textarea" rows="2" placeholder="Papildoma informacija, nuoroda ar komentaras..."></textarea>
           </div>
+
+          <!-- Nuotraukų ir failų prisegimas prie užsiėmimo -->
+          <div class="form-group">
+            <label class="form-label">Nuotraukos ir failai (automatiškai susiejami su klientu)</label>
+            <div class="attach-dropzone" id="sessionDropzone" tabindex="0" role="button">
+              <span>📎 <strong>Spustelėkite arba nutempkite nuotraukas / failus</strong></span>
+              <span style="font-size:11.5px;">Nuotraukos optimizuojamos automatiškai, dokumentai iki 3 MB</span>
+            </div>
+            <input type="file" id="sessionFileInput" multiple style="display:none" />
+            <div class="modal-attachments-list" id="sessionAttachmentsList"></div>
+          </div>
+
           <div class="conflict-warning" id="conflictWarning">
             ⚠️ Dėmesio: šiuo metu jau yra suplanuotas kitas užsiėmimas.
           </div>
@@ -1273,7 +1581,7 @@
           </div>
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn" data-close="sessionModal">Atšaukti</button>
-            <button type="submit" class="btn btn-primary">Išsaugoti</button>
+            <button type="submit" class="btn btn-primary" id="btnSaveSession">Išsaugoti</button>
           </div>
         </div>
       </form>
@@ -1354,7 +1662,7 @@
             <div class="form-group">
               <label class="form-label" for="taskAssignedDate">Skyrimo data *</label>
               <div class="date-picker-wrap">
-                <input type="text" id="taskAssignedDate" class="form-input" required placeholder="2000-12-31" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" />
+                <input type="text" id="taskAssignedDate" class="form-input" required placeholder="2026-11-23" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" />
                 <span class="date-picker-btn" aria-hidden="true">📅</span>
                 <input type="date" class="native-date-proxy" data-target="taskAssignedDate" tabindex="-1" title="Pasirinkti datą" />
               </div>
@@ -1362,7 +1670,7 @@
             <div class="form-group">
               <label class="form-label" for="taskDueDate">Atlikti iki (neprivaloma)</label>
               <div class="date-picker-wrap">
-                <input type="text" id="taskDueDate" class="form-input" placeholder="2000-12-31" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" />
+                <input type="text" id="taskDueDate" class="form-input" placeholder="2026-11-30" maxlength="10" pattern="\d{4}-\d{2}-\d{2}" />
                 <span class="date-picker-btn" aria-hidden="true">📅</span>
                 <input type="date" class="native-date-proxy" data-target="taskDueDate" tabindex="-1" title="Pasirinkti datą" />
               </div>
@@ -1424,6 +1732,26 @@
     </div>
   </div>
 
+  <!-- MODALAS 5: NUOTRAUKOS PERŽIŪRA (LIGHTBOX) -->
+  <div class="modal-backdrop" id="previewModal">
+    <div class="modal" style="max-width:780px;">
+      <div class="modal-header">
+        <span id="previewModalTitle" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:85%;">Peržiūra</span>
+        <button class="btn btn-sm" data-close="previewModal">✕</button>
+      </div>
+      <div class="lightbox-img-wrap">
+        <img id="previewModalImg" src="" alt="Peržiūra" />
+      </div>
+      <div class="modal-footer">
+        <span id="previewModalMeta" style="font-size:12.5px; color:var(--muted);"></span>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn" data-close="previewModal">Uždaryti</button>
+          <a id="previewModalDownload" class="btn btn-primary" download="failas">⬇ Atsisiųsti</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
@@ -1435,6 +1763,7 @@
 
       const LOCAL_BACKUP_KEY = 'lt_uzsiemimu_kalendorius_v2';
       const DAILY_CAPACITY_MINS = 480;
+      const MAX_RAW_FILE_BYTES = 3 * 1024 * 1024; // 3 MB ne-vaizdo failams
 
       const MONTHS_NOM = [
         'Sausis', 'Vasaris', 'Kovas', 'Balandis', 'Gegužė', 'Birželis',
@@ -1473,6 +1802,7 @@
       let clientSearchQuery = '';
       let selectedClientId = null;
       let state = { clients: [], sessions: [] };
+      let draftSessionAttachments = [];
 
       // DOM elementai
       const elAuthScreen = document.getElementById('authScreen');
@@ -1512,6 +1842,16 @@
       const elInputNotes = document.getElementById('inputNotes');
       const elBtnDeleteSession = document.getElementById('btnDeleteSession');
       const elConflictWarning = document.getElementById('conflictWarning');
+      const elSessionDropzone = document.getElementById('sessionDropzone');
+      const elSessionFileInput = document.getElementById('sessionFileInput');
+      const elSessionAttachmentsList = document.getElementById('sessionAttachmentsList');
+
+      // 24 val. laiko pasirinkiklis
+      const elTimePickerWrap = document.getElementById('timePickerWrap');
+      const elBtnToggleTimePopover = document.getElementById('btnToggleTimePopover');
+      const elTimePickerPopover = document.getElementById('timePickerPopover');
+      const elTimeHoursCol = document.getElementById('timeHoursCol');
+      const elTimeMinsCol = document.getElementById('timeMinsCol');
 
       // Kliento modalas
       const elClientModal = document.getElementById('clientModal');
@@ -1546,7 +1886,14 @@
       const elConfirmPassword = document.getElementById('confirmPassword');
       const elBtnSavePassword = document.getElementById('btnSavePassword');
 
-      // Pagalbinės datos ir formato funkcijos (visur YYYY-MM-DD)
+      // Peržiūros (Lightbox) modalas
+      const elPreviewModal = document.getElementById('previewModal');
+      const elPreviewModalTitle = document.getElementById('previewModalTitle');
+      const elPreviewModalImg = document.getElementById('previewModalImg');
+      const elPreviewModalMeta = document.getElementById('previewModalMeta');
+      const elPreviewModalDownload = document.getElementById('previewModalDownload');
+
+      // Pagalbinės datos, laiko ir formato funkcijos (visur YYYY-MM-DD ir 24 val.)
       function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 
       function toISODate(d) {
@@ -1566,6 +1913,20 @@
       function parseISODate(str) {
         const [y, m, d] = str.split('-').map(Number);
         return new Date(y, m - 1, d);
+      }
+
+      function isValid24Time(str) {
+        return /^([01]\d|2[0-3]):[0-5]\d$/.test(str);
+      }
+
+      function normalize24Time(raw) {
+        const cleaned = String(raw || '').trim();
+        const m = cleaned.match(/^(\d{1,2}):?(\d{2})$/);
+        if (!m) return null;
+        const h = Number(m[1]);
+        const min = Number(m[2]);
+        if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+        return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
       }
 
       function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
@@ -1597,6 +1958,13 @@
         return `${m} min.`;
       }
 
+      function formatBytes(bytes) {
+        const b = Number(bytes || 0);
+        if (b < 1024) return `${b} B`;
+        if (b < 1024 * 1024) return `${Math.round(b / 1024)} KB`;
+        return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+      }
+
       function escapeHtml(str) {
         return String(str || '')
           .replace(/&/g, '&amp;')
@@ -1619,7 +1987,301 @@
         elSyncStatus.textContent = text;
       }
 
-      // Vartotojo meniu atidarymas / uždarymas
+      // ==================== 24 VAL. LAIKO PASIRINKIKLIS ====================
+      function buildTimePopover() {
+        let hHtml = `<div class="time-col-header">Val.</div>`;
+        for (let h = 0; h < 24; h++) {
+          const hh = String(h).padStart(2, '0');
+          hHtml += `<button type="button" class="time-opt" data-hour="${hh}">${hh}</button>`;
+        }
+        elTimeHoursCol.innerHTML = hHtml;
+
+        let mHtml = `<div class="time-col-header">Min.</div>`;
+        for (let m = 0; m < 60; m += 5) {
+          const mm = String(m).padStart(2, '0');
+          mHtml += `<button type="button" class="time-opt" data-min="${mm}">${mm}</button>`;
+        }
+        elTimeMinsCol.innerHTML = mHtml;
+
+        elTimeHoursCol.querySelectorAll('[data-hour]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const norm = normalize24Time(elInputTime.value) || '09:00';
+            const [, curMin] = norm.split(':');
+            elInputTime.value = `${btn.dataset.hour}:${curMin}`;
+            highlightTimePopover();
+            checkConflict();
+          });
+        });
+
+        elTimeMinsCol.querySelectorAll('[data-min]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const norm = normalize24Time(elInputTime.value) || '09:00';
+            const [curHour] = norm.split(':');
+            elInputTime.value = `${curHour}:${btn.dataset.min}`;
+            highlightTimePopover();
+            checkConflict();
+            elTimePickerPopover.classList.remove('open');
+          });
+        });
+      }
+
+      function highlightTimePopover() {
+        const norm = normalize24Time(elInputTime.value) || '09:00';
+        const [hh, mm] = norm.split(':');
+        elTimeHoursCol.querySelectorAll('[data-hour]').forEach(b => {
+          const act = b.dataset.hour === hh;
+          b.classList.toggle('active', act);
+          if (act) b.scrollIntoView({ block: 'nearest' });
+        });
+        elTimeMinsCol.querySelectorAll('[data-min]').forEach(b => {
+          const act = b.dataset.min === mm;
+          b.classList.toggle('active', act);
+          if (act) b.scrollIntoView({ block: 'nearest' });
+        });
+      }
+
+      elBtnToggleTimePopover.addEventListener('click', e => {
+        e.stopPropagation();
+        const isOpen = elTimePickerPopover.classList.toggle('open');
+        if (isOpen) highlightTimePopover();
+      });
+
+      elInputTime.addEventListener('input', () => {
+        const digits = elInputTime.value.replace(/\D/g, '').slice(0, 4);
+        if (digits.length >= 3) {
+          elInputTime.value = `${digits.slice(0, 2)}:${digits.slice(2)}`;
+        } else {
+          elInputTime.value = digits;
+        }
+        checkConflict();
+      });
+
+      elInputTime.addEventListener('blur', () => {
+        const norm = normalize24Time(elInputTime.value);
+        if (norm) elInputTime.value = norm;
+        checkConflict();
+      });
+
+      buildTimePopover();
+
+      // ==================== FAILŲ IR NUOTRAUKŲ APDOROJIMAS ====================
+      function isImageMime(type) {
+        return String(type || '').startsWith('image/');
+      }
+
+      function getFileIcon(type, name = '') {
+        const t = String(type || '').toLowerCase();
+        const n = String(name || '').toLowerCase();
+        if (t.includes('pdf') || n.endsWith('.pdf')) return '📕';
+        if (t.includes('word') || n.endsWith('.doc') || n.endsWith('.docx')) return '📘';
+        if (t.includes('excel') || t.includes('sheet') || n.endsWith('.xls') || n.endsWith('.xlsx')) return '📗';
+        if (t.includes('zip') || t.includes('rar') || n.endsWith('.zip')) return '🗜️';
+        return '📄';
+      }
+
+      function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Nepavyko perskaityti failo'));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function compressImageFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('Nepavyko perskaityti nuotraukos'));
+          reader.onload = () => {
+            const rawDataUrl = reader.result;
+            // Mažus PNG/SVG/GIF paliekame originalius (pvz., logotipus su permatomu fonu)
+            if ((file.type === 'image/png' || file.type === 'image/svg+xml' || file.type === 'image/gif') && file.size <= 450 * 1024) {
+              resolve({
+                id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                dataUrl: rawDataUrl,
+                uploadedAt: toISODate(new Date())
+              });
+              return;
+            }
+
+            const img = new Image();
+            img.onerror = () => reject(new Error('Sugadintas nuotraukos failas'));
+            img.onload = () => {
+              const MAX_DIM = 1400;
+              let w = img.width;
+              let h = img.height;
+              if (w > MAX_DIM || h > MAX_DIM) {
+                if (w > h) {
+                  h = Math.round((h * MAX_DIM) / w);
+                  w = MAX_DIM;
+                } else {
+                  w = Math.round((w * MAX_DIM) / h);
+                  h = MAX_DIM;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, w, h);
+
+              const outType = file.type === 'image/png' && file.size <= 900 * 1024 ? 'image/png' : 'image/jpeg';
+              const outDataUrl = outType === 'image/png'
+                ? canvas.toDataURL('image/png')
+                : canvas.toDataURL('image/jpeg', 0.82);
+
+              const approxBytes = Math.round((outDataUrl.length * 3) / 4);
+              resolve({
+                id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                name: file.name,
+                type: outType,
+                size: approxBytes,
+                dataUrl: outDataUrl,
+                uploadedAt: toISODate(new Date())
+              });
+            };
+            img.src = rawDataUrl;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function processUploadedFiles(fileList) {
+        const results = [];
+        for (const file of Array.from(fileList)) {
+          try {
+            if (isImageMime(file.type)) {
+              const item = await compressImageFile(file);
+              results.push(item);
+            } else {
+              if (file.size > MAX_RAW_FILE_BYTES) {
+                alert(`Failas „${file.name}“ yra per didelis (${formatBytes(file.size)}). Maksimalus dokumento dydis – 3 MB.`);
+                continue;
+              }
+              const dataUrl = await readFileAsDataURL(file);
+              results.push({
+                id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                name: file.name,
+                type: file.type || 'application/octet-stream',
+                size: file.size,
+                dataUrl,
+                uploadedAt: toISODate(new Date())
+              });
+            }
+          } catch (err) {
+            console.error('File process error:', err);
+            showToast(`Nepavyko pridėti failo „${file.name}“`);
+          }
+        }
+        return results;
+      }
+
+      function dataUrlToBlobUrl(dataUrl) {
+        const [header, base64] = dataUrl.split(',');
+        const mimeMatch = header.match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+        const binary = atob(base64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: mime });
+        return URL.createObjectURL(blob);
+      }
+
+      function openAttachment(att, metaText = '') {
+        if (!att || !att.dataUrl) return;
+        if (isImageMime(att.type)) {
+          elPreviewModalTitle.textContent = att.name;
+          elPreviewModalImg.src = att.dataUrl;
+          elPreviewModalMeta.textContent = metaText || `${formatBytes(att.size)} · ${att.uploadedAt || ''}`;
+          elPreviewModalDownload.href = att.dataUrl;
+          elPreviewModalDownload.download = att.name || 'nuotrauka.jpg';
+          elPreviewModal.classList.add('open');
+        } else {
+          const blobUrl = dataUrlToBlobUrl(att.dataUrl);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = att.name || 'failas';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+        }
+      }
+
+      function renderSessionAttachmentsList() {
+        if (draftSessionAttachments.length === 0) {
+          elSessionAttachmentsList.innerHTML = '';
+          return;
+        }
+        elSessionAttachmentsList.innerHTML = draftSessionAttachments.map(att => {
+          const isImg = isImageMime(att.type);
+          return `
+            <div class="att-thumb-card">
+              <button type="button" class="att-remove-btn" data-remove-att="${att.id}" title="Pašalinti">✕</button>
+              <div class="att-thumb-preview" data-preview-att="${att.id}">
+                ${isImg
+                  ? `<img src="${att.dataUrl}" alt="${escapeHtml(att.name)}" />`
+                  : `<span class="att-file-icon">${getFileIcon(att.type, att.name)}</span>`}
+              </div>
+              <div class="att-thumb-info">
+                <div class="att-thumb-name" title="${escapeHtml(att.name)}">${escapeHtml(att.name)}</div>
+                <div class="att-thumb-size">${formatBytes(att.size)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        elSessionAttachmentsList.querySelectorAll('[data-remove-att]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            draftSessionAttachments = draftSessionAttachments.filter(x => x.id !== btn.dataset.removeAtt);
+            renderSessionAttachmentsList();
+          });
+        });
+
+        elSessionAttachmentsList.querySelectorAll('[data-preview-att]').forEach(el => {
+          el.addEventListener('click', () => {
+            const att = draftSessionAttachments.find(x => x.id === el.dataset.previewAtt);
+            if (att) openAttachment(att);
+          });
+        });
+      }
+
+      elSessionDropzone.addEventListener('click', () => elSessionFileInput.click());
+      elSessionDropzone.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          elSessionFileInput.click();
+        }
+      });
+      elSessionDropzone.addEventListener('dragover', e => {
+        e.preventDefault();
+        elSessionDropzone.classList.add('dragover');
+      });
+      elSessionDropzone.addEventListener('dragleave', () => elSessionDropzone.classList.remove('dragover'));
+      elSessionDropzone.addEventListener('drop', async e => {
+        e.preventDefault();
+        elSessionDropzone.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+          const added = await processUploadedFiles(e.dataTransfer.files);
+          draftSessionAttachments.push(...added);
+          renderSessionAttachmentsList();
+        }
+      });
+
+      elSessionFileInput.addEventListener('change', async () => {
+        if (elSessionFileInput.files && elSessionFileInput.files.length > 0) {
+          const added = await processUploadedFiles(elSessionFileInput.files);
+          draftSessionAttachments.push(...added);
+          renderSessionAttachmentsList();
+          elSessionFileInput.value = '';
+        }
+      });
+
+      // ==================== VARTOTOJO MENIU IR SLAPTAŽODIS ====================
       function closeUserDropdown() {
         elUserDropdown.classList.remove('open');
         elBtnUserMenu.classList.remove('open');
@@ -1636,6 +2298,9 @@
       document.addEventListener('click', e => {
         if (!document.getElementById('userMenuWrap').contains(e.target)) {
           closeUserDropdown();
+        }
+        if (elTimePickerWrap && !elTimePickerWrap.contains(e.target)) {
+          elTimePickerPopover.classList.remove('open');
         }
       });
 
@@ -1786,6 +2451,7 @@
               status: 'aktyvus',
               description: 'Ruošiasi tarptautiniam egzaminui. Stipri gramatika, pagrindinis tikslas – laisvesnis kalbėjimas.',
               createdAt: todayStr,
+              attachments: [],
               tasks: [
                 {
                   id: 't-demo-1',
@@ -1807,7 +2473,8 @@
               startTime: '10:00',
               duration: 60,
               status: 'patvirtinta',
-              notes: 'Pasiruošti B2 kalbėjimo temai'
+              notes: 'Pasiruošti B2 kalbėjimo temai',
+              attachments: []
             },
             {
               id: 'demo-2',
@@ -1817,7 +2484,8 @@
               startTime: '18:00',
               duration: 90,
               status: 'suplanuota',
-              notes: ''
+              notes: '',
+              attachments: []
             }
           ]
         };
@@ -1888,7 +2556,7 @@
         } catch (err) {
           console.error('Supabase save error:', err);
           setSyncStatus('error', '⚠️ Nepavyko išsaugoti');
-          if (!silent) showToast('Klaida saugant į debesį. Patikrinkite interneto ryšį.');
+          if (!silent) showToast('Klaida saugant į debesį. Patikrinkite failų dydį arba ryšį.');
         }
       }
 
@@ -1933,6 +2601,34 @@
         return list
           .filter(s => s.status !== 'atsaukta')
           .reduce((sum, s) => sum + Number(s.duration || 60), 0);
+      }
+
+      function getClientAllAttachments(client) {
+        const direct = (client.attachments || []).map(att => ({
+          att,
+          source: 'client',
+          sessionId: null,
+          sessionDate: att.uploadedAt || '',
+          sessionTopic: 'Kliento kortelė'
+        }));
+
+        const fromSessions = [];
+        state.sessions
+          .filter(s => s.client.toLowerCase() === client.name.toLowerCase())
+          .sort((a, b) => `${b.date} ${b.startTime}`.localeCompare(`${a.date} ${a.startTime}`))
+          .forEach(s => {
+            (s.attachments || []).forEach(att => {
+              fromSessions.push({
+                att,
+                source: 'session',
+                sessionId: s.id,
+                sessionDate: s.date,
+                sessionTopic: s.topic
+              });
+            });
+          });
+
+        return [...fromSessions, ...direct];
       }
 
       function renderAll() {
@@ -2001,8 +2697,9 @@
 
           const visible = daySessions.slice(0, 3);
           visible.forEach(s => {
+            const attCount = (s.attachments || []).length;
             html += `<div class="event-chip st-${s.status}" data-id="${s.id}" title="${escapeHtml(s.date + ' ' + s.startTime + ' ' + s.client + ' – ' + s.topic)}">
-              <strong>${escapeHtml(s.startTime)}</strong> ${escapeHtml(s.client)}
+              <strong>${escapeHtml(s.startTime)}</strong> ${escapeHtml(s.client)}${attCount > 0 ? ' 📎' : ''}
             </div>`;
           });
           if (daySessions.length > 3) {
@@ -2062,8 +2759,9 @@
             html += `<div class="week-slot" data-date="${dStr}" data-time="${hStr}">`;
             slotSessions.forEach(s => {
               const end = minsToTime(timeToMins(s.startTime) + Number(s.duration));
+              const attCount = (s.attachments || []).length;
               html += `<div class="event-chip st-${s.status}" data-id="${s.id}" title="${escapeHtml(s.date + ' ' + s.client + ' – ' + s.topic)}">
-                <strong>${escapeHtml(s.startTime)}–${end}</strong> ${escapeHtml(s.client)}
+                <strong>${escapeHtml(s.startTime)}–${end}</strong> ${escapeHtml(s.client)}${attCount > 0 ? ' 📎' : ''}
               </div>`;
             });
             html += `</div>`;
@@ -2122,10 +2820,13 @@
 
           slotSessions.forEach(s => {
             const end = minsToTime(timeToMins(s.startTime) + Number(s.duration));
+            const attCount = (s.attachments || []).length;
             html += `<div class="day-event-card st-${s.status}" data-id="${s.id}">
               <div>
                 <strong>${escapeHtml(s.startTime)}–${end}</strong> · ${escapeHtml(s.client)}
-                <div style="font-size:12px; opacity:0.85;">${escapeHtml(s.topic)}</div>
+                <div style="font-size:12px; opacity:0.85;">
+                  ${escapeHtml(s.topic)} ${attCount > 0 ? `· 📎 ${attCount} fail.` : ''}
+                </div>
               </div>
               <span class="badge">${STATUS_LABELS[s.status]}</span>
             </div>`;
@@ -2169,6 +2870,7 @@
           elSidebarBody.innerHTML = daySessions.map(s => {
             const end = minsToTime(timeToMins(s.startTime) + Number(s.duration));
             const linkedClient = state.clients.find(c => c.name.toLowerCase() === s.client.toLowerCase());
+            const attCount = (s.attachments || []).length;
             return `
               <div class="schedule-item st-${s.status}">
                 <div class="schedule-item-top">
@@ -2176,7 +2878,10 @@
                   <span class="badge">${STATUS_LABELS[s.status]}</span>
                 </div>
                 <div class="schedule-client">${escapeHtml(s.client)}</div>
-                <div class="schedule-topic">${escapeHtml(s.topic)}</div>
+                <div class="schedule-topic">
+                  <span>${escapeHtml(s.topic)}</span>
+                  ${attCount > 0 ? `<span class="badge badge-blue">📎 ${attCount}</span>` : ''}
+                </div>
                 ${s.notes ? `<div class="schedule-notes">${escapeHtml(s.notes)}</div>` : ''}
                 <div class="schedule-actions">
                   <button class="btn btn-sm" data-edit="${s.id}">Redaguoti</button>
@@ -2272,6 +2977,7 @@
           elClientsListBody.innerHTML = filteredClients.map(c => {
             const activeTasks = (c.tasks || []).filter(t => t.status === 'skirta').length;
             const totalTasks = (c.tasks || []).length;
+            const filesCount = getClientAllAttachments(c).length;
             const badgeClass = c.status === 'aktyvus' ? 'badge-green' : (c.status === 'pauze' ? 'badge-amber' : '');
             return `
               <div class="client-list-item ${c.id === selectedClientId ? 'active' : ''}" data-client-id="${c.id}">
@@ -2282,6 +2988,7 @@
                 <div class="client-item-meta">
                   ${c.level ? `<span>🏷️ ${escapeHtml(c.level)}</span>` : ''}
                   <span>📝 Užduočių: ${totalTasks}${activeTasks > 0 ? ` (${activeTasks} akt.)` : ''}</span>
+                  ${filesCount > 0 ? `<span>📎 Failų: ${filesCount}</span>` : ''}
                 </div>
               </div>
             `;
@@ -2303,7 +3010,7 @@
         if (!client) {
           elClientDetailWrap.innerHTML = `
             <div class="empty-state" style="margin:auto; max-width:420px;">
-              Pasirinkite klientą iš sąrašo kairėje arba sukurkite naują klientą, kad matytumėte jo aprašymą ir užduočių istoriją.
+              Pasirinkite klientą iš sąrašo kairėje arba sukurkite naują klientą, kad matytumėte jo aprašymą, nuotraukas, failus ir užduočių istoriją.
             </div>`;
           return;
         }
@@ -2312,6 +3019,7 @@
         const clientSessions = state.sessions
           .filter(s => s.client.toLowerCase() === client.name.toLowerCase())
           .sort((a, b) => `${b.date} ${b.startTime}`.localeCompare(`${a.date} ${a.startTime}`));
+        const allFiles = getClientAllAttachments(client);
 
         const badgeClass = client.status === 'aktyvus' ? 'badge-green' : (client.status === 'pauze' ? 'badge-amber' : '');
 
@@ -2341,6 +3049,53 @@
               <div class="section-title">Kliento aprašymas ir pastabos</div>
             </div>
             <div class="client-description-box">${client.description ? escapeHtml(client.description) : '<span style="color:var(--muted)">Aprašymas dar nepridėtas. Paspauskite „Redaguoti klientą“, kad įrašytumėte pastabas apie šį klientą.</span>'}</div>
+          </div>
+
+          <!-- NUOTRAUKOS IR FAILAI -->
+          <div class="client-section">
+            <div class="section-header">
+              <div class="section-title">Nuotraukos ir failai (${allFiles.length})</div>
+              <div>
+                <button class="btn btn-primary btn-sm" id="btnClientUploadFile">+ Pridėti nuotrauką / failą</button>
+                <input type="file" id="clientDirectFileInput" multiple style="display:none" />
+              </div>
+            </div>
+            ${allFiles.length === 0 ? `
+              <div class="empty-state">Prie šio kliento užsiėmimų ar kortelės prisegtų nuotraukų ir failų dar nėra.</div>
+            ` : `<div class="client-files-grid">` + allFiles.map((item, idx) => {
+              const att = item.att;
+              const isImg = isImageMime(att.type);
+              const sourceLabel = item.source === 'session'
+                ? `📅 ${item.sessionDate} · ${item.sessionTopic}`
+                : `👤 Kliento kortelė (${att.uploadedAt || '—'})`;
+              return `
+                <div class="client-file-card">
+                  <div class="client-file-media" data-open-file-idx="${idx}" title="Spustelėkite peržiūrėti arba atsisiųsti">
+                    ${isImg
+                      ? `<img src="${att.dataUrl}" alt="${escapeHtml(att.name)}" />`
+                      : `<div class="client-file-doc-badge">
+                          <span style="font-size:34px;">${getFileIcon(att.type, att.name)}</span>
+                          <span>Dokumentas</span>
+                        </div>`}
+                  </div>
+                  <div class="client-file-body">
+                    <div class="client-file-title" title="${escapeHtml(att.name)}">${escapeHtml(att.name)}</div>
+                    ${item.source === 'session'
+                      ? `<div class="client-file-source" data-jump-session="${item.sessionId}" title="Atidaryti susietą užsiėmimą">${escapeHtml(sourceLabel)}</div>`
+                      : `<div class="client-file-source direct">${escapeHtml(sourceLabel)}</div>`}
+                    <div class="client-file-footer">
+                      <span>${formatBytes(att.size)}</span>
+                      <div style="display:flex; gap:4px;">
+                        <button type="button" class="btn btn-sm" style="padding:2px 7px; font-size:11px;" data-open-file-idx="${idx}">
+                          ${isImg ? 'Peržiūrėti' : 'Atsisiųsti'}
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm" style="padding:2px 7px; font-size:11px;" data-del-file-idx="${idx}" title="Ištrinti failą">✕</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('') + `</div>`}
           </div>
 
           <div class="client-section">
@@ -2383,10 +3138,12 @@
               <div class="empty-state">Su šiuo klientu suplanuotų užsiėmimų kalendoriuje kol kas nėra.</div>
             ` : `<div class="history-list">` + clientSessions.map(s => {
               const end = minsToTime(timeToMins(s.startTime) + Number(s.duration));
+              const attCount = (s.attachments || []).length;
               return `
                 <div class="history-row st-${s.status}" data-edit-session="${s.id}">
                   <div>
                     <strong>${escapeHtml(s.date)}</strong> · ${escapeHtml(s.startTime)}–${end} — ${escapeHtml(s.topic)}
+                    ${attCount > 0 ? `<span class="badge badge-blue" style="margin-left:6px;">📎 ${attCount}</span>` : ''}
                   </div>
                   <span class="badge">${STATUS_LABELS[s.status]}</span>
                 </div>
@@ -2401,6 +3158,58 @@
         document.getElementById('btnEditCurrentClient').addEventListener('click', () => openClientModal(client.id));
         document.getElementById('btnDeleteCurrentClient').addEventListener('click', () => deleteClient(client.id));
         document.getElementById('btnAddTask').addEventListener('click', () => openTaskModal(null));
+
+        // Tiesioginis failo įkėlimas kliento kortelėje
+        const elDirectInput = document.getElementById('clientDirectFileInput');
+        document.getElementById('btnClientUploadFile').addEventListener('click', () => elDirectInput.click());
+        elDirectInput.addEventListener('change', async () => {
+          if (elDirectInput.files && elDirectInput.files.length > 0) {
+            const added = await processUploadedFiles(elDirectInput.files);
+            if (added.length > 0) {
+              if (!Array.isArray(client.attachments)) client.attachments = [];
+              client.attachments.unshift(...added);
+              renderClientsPage();
+              await saveState();
+              showToast(`Pridėta failų: ${added.length}`);
+            }
+            elDirectInput.value = '';
+          }
+        });
+
+        // Failų peržiūra, atsisiuntimas, šuolis į užsiėmimą ir trynimas
+        elClientDetailWrap.querySelectorAll('[data-open-file-idx]').forEach(el => {
+          el.addEventListener('click', () => {
+            const item = allFiles[Number(el.dataset.openFileIdx)];
+            if (!item) return;
+            const meta = item.source === 'session'
+              ? `Užsiėmimas: ${item.sessionDate} · ${item.sessionTopic} (${formatBytes(item.att.size)})`
+              : `Klientas: ${client.name} (${formatBytes(item.att.size)})`;
+            openAttachment(item.att, meta);
+          });
+        });
+
+        elClientDetailWrap.querySelectorAll('[data-jump-session]').forEach(el => {
+          el.addEventListener('click', () => openSessionModal(el.dataset.jumpSession));
+        });
+
+        elClientDetailWrap.querySelectorAll('[data-del-file-idx]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const item = allFiles[Number(btn.dataset.delFileIdx)];
+            if (!item) return;
+            if (!confirm(`Ar tikrai norite ištrinti failą „${item.att.name}“?`)) return;
+            if (item.source === 'session') {
+              const s = state.sessions.find(x => x.id === item.sessionId);
+              if (s && Array.isArray(s.attachments)) {
+                s.attachments = s.attachments.filter(a => a.id !== item.att.id);
+              }
+            } else if (Array.isArray(client.attachments)) {
+              client.attachments = client.attachments.filter(a => a.id !== item.att.id);
+            }
+            renderClientsPage();
+            await saveState();
+            showToast('Failas ištrintas');
+          });
+        });
 
         elClientDetailWrap.querySelectorAll('[data-toggle-task]').forEach(btn => {
           btn.addEventListener('click', () => toggleTaskStatus(client.id, btn.dataset.toggleTask));
@@ -2420,6 +3229,7 @@
       function openSessionModal(id = null, defaultDate = null, defaultTime = '09:00', defaultClientName = '') {
         elSessionForm.reset();
         elConflictWarning.style.display = 'none';
+        elTimePickerPopover.classList.remove('open');
 
         if (id) {
           const s = state.sessions.find(x => x.id === id);
@@ -2429,22 +3239,25 @@
           elInputClient.value = s.client;
           elInputTopic.value = s.topic;
           elInputDate.value = s.date;
-          elInputTime.value = s.startTime;
+          elInputTime.value = normalize24Time(s.startTime) || '09:00';
           elInputDuration.value = String(s.duration);
           elInputStatus.value = s.status;
           elInputNotes.value = s.notes || '';
+          draftSessionAttachments = Array.isArray(s.attachments) ? s.attachments.map(a => ({ ...a })) : [];
           elBtnDeleteSession.style.display = 'inline-flex';
         } else {
           elModalTitle.textContent = 'Naujas užsiėmimas';
           elSessionId.value = '';
           elInputClient.value = defaultClientName;
           elInputDate.value = defaultDate || toISODate(selectedDate);
-          elInputTime.value = defaultTime;
+          elInputTime.value = normalize24Time(defaultTime) || '09:00';
           elInputDuration.value = '60';
           elInputStatus.value = 'suplanuota';
+          draftSessionAttachments = [];
           elBtnDeleteSession.style.display = 'none';
         }
 
+        renderSessionAttachmentsList();
         syncDateProxy('inputDate');
         checkConflict();
         elSessionModal.classList.add('open');
@@ -2453,7 +3266,7 @@
 
       function checkConflict() {
         const date = elInputDate.value.trim();
-        const time = elInputTime.value;
+        const time = normalize24Time(elInputTime.value);
         const dur = Number(elInputDuration.value || 60);
         const currentId = elSessionId.value;
         if (!isValidISODate(date) || !time) {
@@ -2596,7 +3409,7 @@
         btn.addEventListener('click', () => closeModal(btn.dataset.close));
       });
 
-      [elSessionModal, elClientModal, elTaskModal, elPasswordModal].forEach(backdrop => {
+      [elSessionModal, elClientModal, elTaskModal, elPasswordModal, elPreviewModal].forEach(backdrop => {
         backdrop.addEventListener('click', e => {
           if (e.target === backdrop) backdrop.classList.remove('open');
         });
@@ -2607,7 +3420,7 @@
       document.getElementById('btnNewClientHeader').addEventListener('click', () => openClientModal());
       document.getElementById('btnNewClientList').addEventListener('click', () => openClientModal());
 
-      [elInputDate, elInputTime, elInputDuration].forEach(el => {
+      [elInputDate, elInputDuration].forEach(el => {
         el.addEventListener('change', checkConflict);
         el.addEventListener('input', checkConflict);
       });
@@ -2627,10 +3440,18 @@
         e.preventDefault();
         const dateVal = elInputDate.value.trim();
         if (!isValidISODate(dateVal)) {
-          alert('Įveskite teisingą datą formatu MMMM-MM-DD (pvz., 2000-12-31).');
+          alert('Įveskite teisingą datą formatu MMMM-MM-DD (pvz., 2026-11-23).');
           elInputDate.focus();
           return;
         }
+
+        const timeVal = normalize24Time(elInputTime.value);
+        if (!timeVal) {
+          alert('Įveskite teisingą 24 val. laiką (pvz., 09:00 arba 14:30).');
+          elInputTime.focus();
+          return;
+        }
+        elInputTime.value = timeVal;
 
         const id = elSessionId.value;
         const clientName = elInputClient.value.trim();
@@ -2639,10 +3460,11 @@
           client: clientName,
           topic: elInputTopic.value.trim(),
           date: dateVal,
-          startTime: elInputTime.value,
+          startTime: timeVal,
           duration: Number(elInputDuration.value),
           status: elInputStatus.value,
-          notes: elInputNotes.value.trim()
+          notes: elInputNotes.value.trim(),
+          attachments: draftSessionAttachments.map(a => ({ ...a }))
         };
 
         if (clientName && !state.clients.some(c => c.name.toLowerCase() === clientName.toLowerCase())) {
@@ -2655,6 +3477,7 @@
             status: 'aktyvus',
             description: '',
             createdAt: toISODate(new Date()),
+            attachments: [],
             tasks: []
           });
         }
@@ -2709,6 +3532,7 @@
             status: elClientStatus.value,
             description: elClientDescription.value.trim(),
             createdAt: toISODate(new Date()),
+            attachments: [],
             tasks: []
           };
           state.clients.push(newClient);
@@ -2728,12 +3552,12 @@
         const dueVal = elTaskDueDate.value.trim();
 
         if (!isValidISODate(assignedVal)) {
-          alert('Skyrimo data turi būti formatu MMMM-MM-DD (pvz., 2000-12-31).');
+          alert('Skyrimo data turi būti formatu MMMM-MM-DD (pvz., 2026-11-23).');
           elTaskAssignedDate.focus();
           return;
         }
         if (dueVal && !isValidISODate(dueVal)) {
-          alert('Termino data turi būti formatu MMMM-MM-DD (pvz., 2000-12-31).');
+          alert('Termino data turi būti formatu MMMM-MM-DD (pvz., 2026-11-30).');
           elTaskDueDate.focus();
           return;
         }
