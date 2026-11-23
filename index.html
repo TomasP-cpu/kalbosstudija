@@ -4654,9 +4654,16 @@
         btn.addEventListener('click', () => closeModal(btn.dataset.close));
       });
 
-      [elSessionModal, elClientModal, elTaskModal, elPasswordModal, elPreviewModal].forEach(backdrop => {
+      let backdropMouseDownTarget = null;
+      document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+        backdrop.addEventListener('mousedown', e => {
+          backdropMouseDownTarget = e.target;
+        });
         backdrop.addEventListener('click', e => {
-          if (e.target === backdrop) backdrop.classList.remove('open');
+          if (e.target === backdrop && backdropMouseDownTarget === backdrop) {
+            backdrop.classList.remove('open');
+          }
+          backdropMouseDownTarget = null;
         });
       });
 
