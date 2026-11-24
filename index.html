@@ -557,6 +557,42 @@
     .time-opt:hover { background: #f1f5f9; }
     .time-opt.active { background: var(--primary); color: #fff; }
 
+    .hours-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .hour-chip-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #f8fafc;
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+    }
+    .hour-chip-label:hover {
+      border-color: #94a3b8;
+      background: #f1f5f9;
+    }
+    .hour-chip-label.checked {
+      background: var(--primary-soft);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .hour-chip-label input {
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
     /* Kalendoriaus turinys */
     .cal-body {
       padding: 14px 16px 16px;
@@ -2143,9 +2179,9 @@
               <span>🔑</span>
               <span>Keisti slaptažodį</span>
             </button>
-            <button type="button" class="user-dropdown-item" id="btnToggleExtraHours" role="menuitem">
+            <button type="button" class="user-dropdown-item" id="btnOpenHoursSettingsModal" role="menuitem">
               <span>🕒</span>
-              <span id="btnToggleExtraHoursLabel">Rodyti 7–13 ir 21 val.</span>
+              <span id="btnToggleExtraHoursLabel">Rodomi laikai (valandos)</span>
             </button>
             <button type="button" class="user-dropdown-item danger" id="btnLogout" role="menuitem">
               <span>🚪</span>
@@ -2541,6 +2577,38 @@
     </div>
   </div>
 
+  <!-- MODALAS: RODOMŲ LAIKŲ (VALANDŲ) PASIRINKIMAS -->
+  <div class="modal-backdrop" id="hoursSettingsModal">
+    <div class="modal" style="max-width:460px;">
+      <div class="modal-header">
+        <span>🕒 Rodomi laikai (Savaitės ir Dienos vaizde)</span>
+        <button class="btn btn-sm" data-close="hoursSettingsModal">✕</button>
+      </div>
+      <form id="hoursSettingsForm">
+        <div class="modal-body">
+          <p style="font-size:13px; color:var(--muted); line-height:1.45;">
+            Pažymėkite, kurias valandas norite matyti <strong>Savaitės</strong> ir <strong>Dienos</strong> tvarkaraštyje. (Jei kuriuo nors kitu metu jau yra suplanuotas užsiėmimas, ta valanda bus parodyta automatiškai.)
+          </p>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm" id="btnHoursPresetDefault">Numatytos (14–20 val.)</button>
+            <button type="button" class="btn btn-sm" id="btnHoursPresetExtended">Visos darbo (7–21 val.)</button>
+            <button type="button" class="btn btn-sm" id="btnHoursSelectAll">Pažymėti visas</button>
+            <button type="button" class="btn btn-sm" id="btnHoursClearAll">Nužymėti visas</button>
+          </div>
+          <div class="hours-picker-grid" id="hoursPickerGrid"></div>
+          <div class="form-error-box" id="hoursSettingsError"></div>
+        </div>
+        <div class="modal-footer">
+          <div></div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn" data-close="hoursSettingsModal">Atšaukti</button>
+            <button type="submit" class="btn btn-primary">Išsaugoti laikus</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODALAS: PLANAVIMO EXCEL IMPORTAS -->
   <div class="modal-backdrop" id="planImportModal">
     <div class="modal" style="max-width:540px;">
@@ -2780,19 +2848,26 @@
       let currentView = 'month';
       let planViewMode = false;
       let planSortBy = 'date'; // 'date' | 'name'
-      let showExtraHoursInViews = false;
-      const EXTRA_HOURS_PREF_KEY = 'lt_kalendorius_show_extra_hours';
+      const DEFAULT_VISIBLE_HOURS = [14, 15, 16, 17, 18, 19, 20];
+      const ALL_CONFIGURABLE_HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+      const VISIBLE_HOURS_PREF_KEY = 'lt_kalendorius_visible_hours_v1';
+      let visibleTimelineHours = [...DEFAULT_VISIBLE_HOURS];
+
       try {
-        const savedExtra = localStorage.getItem(EXTRA_HOURS_PREF_KEY);
-        if (savedExtra === 'true') showExtraHoursInViews = true;
-        else if (savedExtra === 'false') showExtraHoursInViews = false;
+        const savedHoursRaw = localStorage.getItem(VISIBLE_HOURS_PREF_KEY);
+        if (savedHoursRaw) {
+          const parsed = JSON.parse(savedHoursRaw);
+          if (Array.isArray(parsed)) {
+            visibleTimelineHours = parsed
+              .map(Number)
+              .filter(h => Number.isInteger(h) && h >= 0 && h <= 23)
+              .sort((a, b) => a - b);
+          }
+        }
       } catch (e) {}
 
       function getVisibleTimelineHours(dateStr) {
-        // Bazinės valandos: 14:00–20:00 (14..20), o įjungus: prideda 7:00–13:00 (7..13) ir 21:00 (21)
-        const baseHours = [14, 15, 16, 17, 18, 19, 20];
-        const extraHours = [7, 8, 9, 10, 11, 12, 13, 21];
-        const set = new Set(showExtraHoursInViews ? [...extraHours, ...baseHours] : baseHours);
+        const set = new Set(visibleTimelineHours);
         // Jei kurią nors dieną jau yra suplanuotas užsiėmimas kitu metu, vis tiek jį parodome, kad įrašas neprapultų
         if (dateStr) {
           state.sessions.filter(s => s.date === dateStr).forEach(s => {
@@ -2800,15 +2875,26 @@
             if (!Number.isNaN(h)) set.add(h);
           });
         }
+        if (set.size === 0) {
+          DEFAULT_VISIBLE_HOURS.forEach(h => set.add(h));
+        }
         return Array.from(set).sort((a, b) => a - b);
       }
 
       function updateExtraHoursMenuLabel() {
         const lbl = document.getElementById('btnToggleExtraHoursLabel');
         if (!lbl) return;
-        lbl.textContent = showExtraHoursInViews
-          ? 'Slėpti 7–13 ir 21 val.'
-          : 'Rodyti 7–13 ir 21 val.';
+        if (visibleTimelineHours.length === 0) {
+          lbl.textContent = 'Rodomi laikai (nepasirinkta)';
+          return;
+        }
+        const sorted = [...visibleTimelineHours].sort((a, b) => a - b);
+        const isContiguous = sorted.every((h, idx) => idx === 0 || h === sorted[idx - 1] + 1);
+        if (isContiguous && sorted.length > 1) {
+          lbl.textContent = `Rodomi laikai (${sorted[0]}–${sorted[sorted.length - 1]} val.)`;
+        } else {
+          lbl.textContent = `Rodomi laikai (${sorted.length} val.)`;
+        }
       }
       let sidebarTab = 'schedule';
       let searchQuery = '';
@@ -4304,6 +4390,14 @@
           });
         }
 
+        let planPointerDownTarget = null;
+        const planTableEl = document.getElementById('planTable');
+        if (planTableEl) {
+          planTableEl.addEventListener('mousedown', e => {
+            planPointerDownTarget = e.target;
+          });
+        }
+
         elCalendarBody.querySelectorAll('.plan-editable-cell').forEach(td => {
           td.addEventListener('click', e => {
             e.stopPropagation();
@@ -4314,9 +4408,16 @@
         });
 
         elCalendarBody.querySelectorAll('.plan-row[data-session-id]').forEach(row => {
-          row.addEventListener('click', () => {
+          row.addEventListener('click', e => {
             const sid = row.dataset.sessionId;
             if (!sid) return;
+            // Jei pelė buvo nuspausta temos/pastabų langelyje (pvz., žymint tekstą) ir atleista už jo ribų, neatidarome redagavimo lango
+            const startedInEditable = planPointerDownTarget && planPointerDownTarget.closest('.plan-editable-cell');
+            const endedInEditable = e.target && e.target.closest('.plan-editable-cell');
+            planPointerDownTarget = null;
+            if (startedInEditable || endedInEditable) {
+              return;
+            }
             const activeInp = elCalendarBody.querySelector('.plan-inline-input');
             if (activeInp) {
               const activeTd = activeInp.closest('.plan-editable-cell');
@@ -6618,20 +6719,79 @@
         showToast(`Nukopijuota užsiėmimų: ${createdCount} (į ${validDates.length} d.)`);
       });
 
-            updateExtraHoursMenuLabel();
-      document.getElementById('btnToggleExtraHours').addEventListener('click', () => {
-        showExtraHoursInViews = !showExtraHoursInViews;
-        try {
-          localStorage.setItem(EXTRA_HOURS_PREF_KEY, String(showExtraHoursInViews));
-        } catch (e) {}
-        updateExtraHoursMenuLabel();
+      const elHoursSettingsModal = document.getElementById('hoursSettingsModal');
+      const elHoursSettingsForm = document.getElementById('hoursSettingsForm');
+      const elHoursPickerGrid = document.getElementById('hoursPickerGrid');
+      const elHoursSettingsError = document.getElementById('hoursSettingsError');
+
+      function renderHoursPickerGrid(selectedSet) {
+        elHoursPickerGrid.innerHTML = ALL_CONFIGURABLE_HOURS.map(h => {
+          const isChecked = selectedSet.has(h);
+          const labelStr = `${String(h).padStart(2, '0')}:00`;
+          return `
+            <label class="hour-chip-label ${isChecked ? 'checked' : ''}">
+              <input type="checkbox" value="${h}" ${isChecked ? 'checked' : ''} />
+              <span>${labelStr}</span>
+            </label>
+          `;
+        }).join('');
+
+        elHoursPickerGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', () => {
+            cb.closest('.hour-chip-label').classList.toggle('checked', cb.checked);
+          });
+        });
+      }
+
+      updateExtraHoursMenuLabel();
+
+      document.getElementById('btnOpenHoursSettingsModal').addEventListener('click', () => {
         closeUserDropdown();
+        elHoursSettingsError.style.display = 'none';
+        renderHoursPickerGrid(new Set(visibleTimelineHours));
+        elHoursSettingsModal.classList.add('open');
+      });
+
+      document.getElementById('btnHoursPresetDefault').addEventListener('click', () => {
+        renderHoursPickerGrid(new Set(DEFAULT_VISIBLE_HOURS));
+      });
+
+      document.getElementById('btnHoursPresetExtended').addEventListener('click', () => {
+        renderHoursPickerGrid(new Set([7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]));
+      });
+
+      document.getElementById('btnHoursSelectAll').addEventListener('click', () => {
+        renderHoursPickerGrid(new Set(ALL_CONFIGURABLE_HOURS));
+      });
+
+      document.getElementById('btnHoursClearAll').addEventListener('click', () => {
+        renderHoursPickerGrid(new Set());
+      });
+
+      elHoursSettingsForm.addEventListener('submit', e => {
+        e.preventDefault();
+        elHoursSettingsError.style.display = 'none';
+        const picked = Array.from(elHoursPickerGrid.querySelectorAll('input[type="checkbox"]:checked'))
+          .map(cb => Number(cb.value))
+          .sort((a, b) => a - b);
+
+        if (picked.length === 0) {
+          elHoursSettingsError.textContent = 'Pasirinkite bent vieną valandą.';
+          elHoursSettingsError.style.display = 'block';
+          return;
+        }
+
+        visibleTimelineHours = picked;
+        try {
+          localStorage.setItem(VISIBLE_HOURS_PREF_KEY, JSON.stringify(visibleTimelineHours));
+        } catch (err) {}
+
+        updateExtraHoursMenuLabel();
+        closeModal('hoursSettingsModal');
         if (activePage === 'calendar' && (currentView === 'week' || currentView === 'day')) {
           renderCalendarPage();
         }
-        showToast(showExtraHoursInViews
-          ? 'Įjungtos 7–13 ir 21 val. savaitės ir dienos rodyme'
-          : 'Paslėptos 7–13 ir 21 val. savaitės ir dienos rodyme');
+        showToast(`Išsaugoti rodomi laikai (${picked.length} val.)`);
       });
 
       // Paleidimas
