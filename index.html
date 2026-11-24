@@ -959,6 +959,7 @@
     }
     .plan-table {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
       font-size: 13px;
       text-align: left;
@@ -996,7 +997,10 @@
       border-radius: 5px;
       padding: 6px 8px !important;
       transition: background 0.12s ease, box-shadow 0.12s ease;
-      min-width: 140px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.45;
     }
     .plan-editable-cell:hover {
       background: #f1f5f9;
@@ -4152,6 +4156,14 @@
         html += `
           <div class="plan-table-wrap" id="planTableWrap">
             <table class="plan-table" id="planTable">
+              <colgroup>
+                ${showDateCol ? '<col style="width:98px;" />' : ''}
+                <col style="width:108px;" />
+                <col style="width:115px;" />
+                <col style="width:32%;" />
+                <col style="width:32%;" />
+                <col style="width:142px;" />
+              </colgroup>
               <thead>
                 <tr>
                   ${showDateCol ? '<th>Data</th>' : ''}
@@ -4298,6 +4310,22 @@
             const rIdx = Number(td.dataset.rowIdx);
             const field = td.dataset.field;
             activatePlanCell(rIdx, field, true);
+          });
+        });
+
+        elCalendarBody.querySelectorAll('.plan-row[data-session-id]').forEach(row => {
+          row.addEventListener('click', () => {
+            const sid = row.dataset.sessionId;
+            if (!sid) return;
+            const activeInp = elCalendarBody.querySelector('.plan-inline-input');
+            if (activeInp) {
+              const activeTd = activeInp.closest('.plan-editable-cell');
+              if (activeTd) {
+                commitAndExitCell(activeTd, true);
+                activePlanCellCoord = null;
+              }
+            }
+            openSessionModal(sid);
           });
         });
 
