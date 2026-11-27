@@ -2170,6 +2170,7 @@
         <button class="btn btn-primary" id="btnNewSession">+ Naujas užsiėmimas</button>
         <button class="btn" id="btnNewClientHeader">+ Naujas klientas</button>
         <button class="btn" id="btnOpenPlanImportModal" title="Importuoti planavimo Excel (.xlsx, .xls, .csv) failą">📥 Importuoti planavimą</button>
+        <button class="btn" id="btnOpenExportModal" title="Eksportuoti dienos, savaitės arba mėnesio užsiėmimus į Excel (.xlsx)">📤 Eksportuoti</button>
         <span class="sync-status" id="syncStatus" title="Bendri duomenys sinchronizuojami tarp visų paskyrų ir įrenginių">☁️ Sinchronizuota</span>
         <button class="btn btn-sm" id="btnManualSync" title="Atnaujinti duomenis iš debesies">↻</button>
 
@@ -2649,6 +2650,50 @@
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn" data-close="planImportModal">Atšaukti</button>
             <button type="submit" class="btn btn-primary" id="btnRunPlanImport" disabled>Importuoti į kalendorių</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODALAS: EKSPORTAS Į EXCEL -->
+  <div class="modal-backdrop" id="exportModal">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <span>📤 Eksportuoti į Excel (.xlsx)</span>
+        <button class="btn btn-sm" data-close="exportModal">✕</button>
+      </div>
+      <form id="exportForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="exportScope">Laikotarpis *</label>
+            <select id="exportScope" class="form-select">
+              <option value="day">Diena</option>
+              <option value="week">Savaitė</option>
+              <option value="month">Mėnuo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="exportDate">Pasirinkta data (MMMM-MM-DD) *</label>
+            <input type="date" id="exportDate" class="form-input" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="exportStatus">Būsena</label>
+            <select id="exportStatus" class="form-select">
+              <option value="all">Visos būsenos</option>
+              <option value="suplanuota">Suplanuota</option>
+              <option value="ivyko">Įvyko</option>
+              <option value="atsaukta">Atšaukta/Neatvyko</option>
+            </select>
+          </div>
+          <div id="exportPreview" style="padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px solid var(--border); font-size:12.5px; line-height:1.5;"></div>
+          <div class="form-error-box" id="exportError"></div>
+        </div>
+        <div class="modal-footer">
+          <div></div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn" data-close="exportModal">Atšaukti</button>
+            <button type="submit" class="btn btn-primary" id="btnRunExport">📤 Atsisiųsti .xlsx</button>
           </div>
         </div>
       </form>
@@ -6385,6 +6430,114 @@
         } finally {
           elBtnRunPlanImport.disabled = false;
           elBtnRunPlanImport.textContent = 'Importuoti į kalendorių';
+        }
+      });
+
+      // ==================== EKSPORTAS Į EXCEL (diena / savaitė / mėnuo) ====================
+      const elExportModal = document.getElementById('exportModal');
+      const elExportForm = document.getElementById('exportForm');
+      const elExportScope = document.getElementById('exportScope');
+      const elExportDate = document.getElementById('exportDate');
+      const elExportStatus = document.getElementById('exportStatus');
+      const elExportPreview = document.getElementById('exportPreview');
+      const elExportError = document.getElementById('exportError');
+
+      function getExportRange(scope, dateStr) {
+        const base = parseISODate(dateStr);
+        if (scope === 'day') {
+          return { from: dateStr, to: dateStr, label: dateStr };
+        }
+        if (scope === 'week') {
+          const mon = getMonday(base);
+          const sun = addDays(mon, 6);
+          return { from: toISODate(mon), to: toISODate(sun), label: `${toISODate(mon)} – ${toISODate(sun)}` };
+        }
+        const first = new Date(base.getFullYear(), base.getMonth(), 1);
+        const last = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+        return { from: toISODate(first), to: toISODate(last), label: `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')} (${MONTHS_NOM[base.getMonth()]})` };
+      }
+
+      function getExportSessions() {
+        const dateStr = elExportDate.value;
+        if (!dateStr || !isValidISODate(dateStr)) return null;
+        const range = getExportRange(elExportScope.value, dateStr);
+        const statusSel = elExportStatus.value;
+        const list = state.sessions
+          .filter(s => s.date && s.date >= range.from && s.date <= range.to)
+          .filter(s => statusSel === 'all' || (statusSel === 'suplanuota' ? (s.status === 'suplanuota' || s.status === 'patvirtinta') : s.status === statusSel))
+          .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime || '').localeCompare(b.startTime || ''));
+        return { range, list };
+      }
+
+      function updateExportPreview() {
+        elExportError.style.display = 'none';
+        const res = getExportSessions();
+        if (!res) {
+          elExportPreview.textContent = 'Pasirinkite tinkamą datą.';
+          return;
+        }
+        elExportPreview.innerHTML = `Laikotarpis: <strong>${escapeHtml(res.range.label)}</strong><br/>Bus eksportuota užsiėmimų: <strong>${res.list.length}</strong>`;
+      }
+
+      document.getElementById('btnOpenExportModal').addEventListener('click', () => {
+        elExportScope.value = planViewMode ? 'month' : (currentView === 'day' || currentView === 'week' || currentView === 'month' ? currentView : 'week');
+        elExportDate.value = toISODate(selectedDate);
+        elExportStatus.value = 'all';
+        updateExportPreview();
+        elExportModal.classList.add('open');
+      });
+      [elExportScope, elExportDate, elExportStatus].forEach(el => el.addEventListener('change', updateExportPreview));
+
+      elExportForm.addEventListener('submit', e => {
+        e.preventDefault();
+        elExportError.style.display = 'none';
+        if (!window.XLSX) {
+          elExportError.textContent = 'Nepavyko užkrauti Excel bibliotekos. Patikrinkite interneto ryšį ir perkraukite puslapį.';
+          elExportError.style.display = 'block';
+          return;
+        }
+        const res = getExportSessions();
+        if (!res) {
+          elExportError.textContent = 'Pasirinkite tinkamą datą.';
+          elExportError.style.display = 'block';
+          return;
+        }
+        if (res.list.length === 0) {
+          elExportError.textContent = 'Pasirinktu laikotarpiu užsiėmimų nerasta.';
+          elExportError.style.display = 'block';
+          return;
+        }
+        try {
+          // Stulpeliai suderinti su importu: Data, Laikas, Vaikas, Planas, Pastabos (+ papildomi)
+          const rows = res.list.map(s => {
+            const startM = timeToMins(s.startTime || '00:00');
+            const dur = Number(s.duration) || 0;
+            const endM = startM + dur;
+            const endStr = `${String(Math.floor(endM / 60) % 24).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`;
+            return {
+              'Data': s.date,
+              'Savaitės diena': WEEKDAYS_FULL[getWeekdayIndex(parseISODate(s.date))],
+              'Laikas': `${s.startTime}-${endStr}`,
+              'Trukmė (min.)': dur,
+              'Vaikas': s.client || '',
+              'Planas': s.topic || '',
+              'Būsena': STATUS_LABELS[s.status] || s.status || '',
+              'Pastabos': s.notes || ''
+            };
+          });
+          const ws = window.XLSX.utils.json_to_sheet(rows);
+          ws['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 13 }, { wch: 13 }, { wch: 26 }, { wch: 40 }, { wch: 20 }, { wch: 50 }];
+          const wb = window.XLSX.utils.book_new();
+          window.XLSX.utils.book_append_sheet(wb, ws, 'Tvarkaraštis');
+          const scopeName = { day: 'diena', week: 'savaite', month: 'menuo' }[elExportScope.value];
+          const fileName = `Tvarkarastis_${scopeName}_${res.range.from}${res.range.to !== res.range.from ? '_' + res.range.to : ''}.xlsx`;
+          window.XLSX.writeFile(wb, fileName);
+          closeModal('exportModal');
+          showToast(`Eksportuota užsiėmimų: ${res.list.length}`);
+        } catch (err) {
+          console.error('Export error:', err);
+          elExportError.textContent = 'Nepavyko sukurti Excel failo.';
+          elExportError.style.display = 'block';
         }
       });
 
