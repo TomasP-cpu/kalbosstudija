@@ -335,6 +335,14 @@
       flex: 1;
     }
 
+    .layout.sidebar-hidden {
+      grid-template-columns: 1fr;
+    }
+
+    .layout.sidebar-hidden > aside.card {
+      display: none;
+    }
+
     .clients-layout {
       display: grid;
       grid-template-columns: 340px 1fr;
@@ -2194,7 +2202,7 @@
 
     <!-- 1 SKIRTUKAS: KALENDORIUS -->
     <div class="page-view active" id="pageCalendar">
-      <main class="layout">
+      <main class="layout sidebar-hidden" id="calendarLayout">
         <section class="card">
           <div class="cal-toolbar">
             <div class="toolbar-row">
@@ -2212,6 +2220,7 @@
                 <button class="btn view-btn" data-view="day">Diena</button>
                 <button class="btn view-btn" data-view="week">Savaitė</button>
                 <button class="btn view-btn active" data-view="month">Mėnuo</button>
+                <button type="button" class="btn" id="btnToggleRightSidebar" title="Rodyti arba slėpti dešinę tvarkaraščio ir santraukos juostą" aria-expanded="false">◀ Tvarkaraštis</button>
               </div>
             </div>
             <div class="filter-row">
@@ -6057,6 +6066,28 @@
           renderCalendarPage();
         });
       });
+
+      let isRightSidebarVisible = false;
+      const elCalendarLayout = document.getElementById('calendarLayout');
+      const elBtnToggleRightSidebar = document.getElementById('btnToggleRightSidebar');
+
+      function updateRightSidebarVisibility() {
+        if (!elCalendarLayout || !elBtnToggleRightSidebar) return;
+        elCalendarLayout.classList.toggle('sidebar-hidden', !isRightSidebarVisible);
+        elBtnToggleRightSidebar.classList.toggle('active', isRightSidebarVisible);
+        elBtnToggleRightSidebar.setAttribute('aria-expanded', String(isRightSidebarVisible));
+        elBtnToggleRightSidebar.textContent = isRightSidebarVisible ? '▶ Slėpti juostą' : '◀ Tvarkaraštis';
+      }
+
+      if (elBtnToggleRightSidebar) {
+        elBtnToggleRightSidebar.addEventListener('click', () => {
+          isRightSidebarVisible = !isRightSidebarVisible;
+          updateRightSidebarVisibility();
+          if (isRightSidebarVisible) {
+            renderSidebar();
+          }
+        });
+      }
 
       document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
